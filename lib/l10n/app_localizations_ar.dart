@@ -105,6 +105,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noRecentRequests => 'لا توجد طلبات حديثة';
 
   @override
+  String get recentNotifications => 'إشعارات حديثة';
+
+  @override
   String get announcements => 'إعلانات حكومية';
 
   @override
@@ -112,6 +115,24 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get reportShortcutSubtitle => 'الكهرباء، المياه، الطرق والمزيد';
+
+  @override
+  String get searchServices => 'ابحث عن الخدمات...';
+
+  @override
+  String get searchNotImplemented => 'خاصية البحث قريباً';
+
+  @override
+  String get report => 'بلاغ';
+
+  @override
+  String get totalReports => 'إجمالي البلاغات';
+
+  @override
+  String get pending => 'معلّق';
+
+  @override
+  String get resolved => 'تم حله';
 
   @override
   String get servicesTitle => 'الخدمات الحكومية';
@@ -339,6 +360,60 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get markAllRead => 'تحديد الكل كمقروء';
+
+  @override
+  String get all => 'الكل';
+
+  @override
+  String get reports => 'البلاغات';
+
+  @override
+  String get services => 'الخدمات';
+
+  @override
+  String get system => 'النظام';
+
+  @override
+  String get adminDashboard => 'لوحة الإدارة';
+
+  @override
+  String get regionalAnalysis => 'التحليل الإقليمي';
+
+  @override
+  String get recentActivity => 'الأنشطة الحديثة';
+
+  @override
+  String get resolvedReports => 'محلول';
+
+  @override
+  String get rejectedReports => 'مرفوض';
+
+  @override
+  String get inProgressReports => 'قيد المعالجة';
+
+  @override
+  String get totalUsers => 'إجمالي المستخدمين';
+
+  @override
+  String get activeUsers => 'المستخدمون النشطون';
+
+  @override
+  String get totalServices => 'الخدمات';
+
+  @override
+  String get totalRequests => 'إجمالي الطلبات';
+
+  @override
+  String get pendingRequests => 'معلّق';
+
+  @override
+  String get completedRequests => 'مكتمل';
+
+  @override
+  String get newReports => 'بلاغات جديدة';
+
+  @override
+  String get noActivity => 'لا توجد أنشطة حديثة';
 
   @override
   String get profileTitle => 'حسابي';

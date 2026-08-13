@@ -278,6 +278,12 @@ abstract class AppLocalizations {
   /// **'You have no recent requests'**
   String get noRecentRequests;
 
+  /// No description provided for @recentNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Notifications'**
+  String get recentNotifications;
+
   /// No description provided for @announcements.
   ///
   /// In en, this message translates to:
@@ -295,6 +301,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Power, water, roads and more'**
   String get reportShortcutSubtitle;
+
+  /// No description provided for @searchServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for services...'**
+  String get searchServices;
+
+  /// No description provided for @searchNotImplemented.
+  ///
+  /// In en, this message translates to:
+  /// **'Search functionality coming soon'**
+  String get searchNotImplemented;
+
+  /// No description provided for @report.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get report;
+
+  /// No description provided for @totalReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Reports'**
+  String get totalReports;
+
+  /// No description provided for @pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get pending;
+
+  /// No description provided for @resolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get resolved;
 
   /// No description provided for @servicesTitle.
   ///
@@ -745,6 +787,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mark all as read'**
   String get markAllRead;
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @reports.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports'**
+  String get reports;
+
+  /// No description provided for @services.
+  ///
+  /// In en, this message translates to:
+  /// **'Services'**
+  String get services;
+
+  /// No description provided for @system.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get system;
+
+  /// No description provided for @adminDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin Dashboard'**
+  String get adminDashboard;
+
+  /// No description provided for @regionalAnalysis.
+  ///
+  /// In en, this message translates to:
+  /// **'Regional Analysis'**
+  String get regionalAnalysis;
+
+  /// No description provided for @recentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Activity'**
+  String get recentActivity;
+
+  /// No description provided for @resolvedReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get resolvedReports;
+
+  /// No description provided for @rejectedReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get rejectedReports;
+
+  /// No description provided for @inProgressReports.
+  ///
+  /// In en, this message translates to:
+  /// **'In Progress'**
+  String get inProgressReports;
+
+  /// No description provided for @totalUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Users'**
+  String get totalUsers;
+
+  /// No description provided for @activeUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Users'**
+  String get activeUsers;
+
+  /// No description provided for @totalServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Services'**
+  String get totalServices;
+
+  /// No description provided for @totalRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Requests'**
+  String get totalRequests;
+
+  /// No description provided for @pendingRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get pendingRequests;
+
+  /// No description provided for @completedRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get completedRequests;
+
+  /// No description provided for @newReports.
+  ///
+  /// In en, this message translates to:
+  /// **'New Reports'**
+  String get newReports;
+
+  /// No description provided for @noActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent activity'**
+  String get noActivity;
 
   /// No description provided for @profileTitle.
   ///

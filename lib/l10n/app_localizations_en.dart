@@ -105,6 +105,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noRecentRequests => 'You have no recent requests';
 
   @override
+  String get recentNotifications => 'Recent Notifications';
+
+  @override
   String get announcements => 'Announcements';
 
   @override
@@ -112,6 +115,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportShortcutSubtitle => 'Power, water, roads and more';
+
+  @override
+  String get searchServices => 'Search for services...';
+
+  @override
+  String get searchNotImplemented => 'Search functionality coming soon';
+
+  @override
+  String get report => 'Report';
+
+  @override
+  String get totalReports => 'Total Reports';
+
+  @override
+  String get pending => 'Pending';
+
+  @override
+  String get resolved => 'Resolved';
 
   @override
   String get servicesTitle => 'Government Services';
@@ -339,6 +360,60 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get markAllRead => 'Mark all as read';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get reports => 'Reports';
+
+  @override
+  String get services => 'Services';
+
+  @override
+  String get system => 'System';
+
+  @override
+  String get adminDashboard => 'Admin Dashboard';
+
+  @override
+  String get regionalAnalysis => 'Regional Analysis';
+
+  @override
+  String get recentActivity => 'Recent Activity';
+
+  @override
+  String get resolvedReports => 'Resolved';
+
+  @override
+  String get rejectedReports => 'Rejected';
+
+  @override
+  String get inProgressReports => 'In Progress';
+
+  @override
+  String get totalUsers => 'Total Users';
+
+  @override
+  String get activeUsers => 'Active Users';
+
+  @override
+  String get totalServices => 'Services';
+
+  @override
+  String get totalRequests => 'Total Requests';
+
+  @override
+  String get pendingRequests => 'Pending';
+
+  @override
+  String get completedRequests => 'Completed';
+
+  @override
+  String get newReports => 'New Reports';
+
+  @override
+  String get noActivity => 'No recent activity';
 
   @override
   String get profileTitle => 'Profile';
