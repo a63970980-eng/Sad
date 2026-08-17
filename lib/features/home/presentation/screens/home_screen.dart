@@ -151,45 +151,35 @@ class HomeScreen extends ConsumerWidget {
                     actionLabel: l.viewAll,
                     onAction: () => context.push(AppRoutes.notifications),
                   ),
-                  const SizedBox(height: 12),
-                  notificationsAsync.when(
-                    loading: () => Column(
-                      children: List.generate(
-                          2,
-                          (_) => const Padding(
-                                padding: EdgeInsets.only(bottom: 12),
-                                child: ShimmerBox(height: 86),
-                              )),
-                    ),
-                    error: (_, __) => const SizedBox.shrink(),
-                    data: (notifications) {
-                      if (notifications.isEmpty) {
-                        return AppCard(
-                          child: Row(
-                            children: [
-                              const Icon(Icons.notifications_off_outlined,
-                                  color: AppColors.primary),
-                              const SizedBox(width: 12),
-                              Expanded(child: Text(l.noNotifications)),
-                            ],
-                          ),
-                        );
-                      }
-                      return Column(
-                        children: [
-                          for (final n in notifications.take(3))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _NotificationTile(
-                                notification: n,
-                                isAr: isAr,
-                                locale: locale,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
+                   if (notificationsAsync.isEmpty)
+  AppCard(
+    child: Row(
+      children: [
+        const Icon(
+          Icons.notifications_off_outlined,
+          color: AppColors.primary,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(l.noNotifications),
+        ),
+      ],
+    ),
+  )
+else
+  Column(
+    children: [
+      for (final n in notificationsAsync.take(3))
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _NotificationTile(
+            notification: n,
+            isAr: isAr,
+            locale: locale,
+          ),
+        ),
+    ],
+  ),
                   const SizedBox(height: 24),
                   
                   // Announcements
