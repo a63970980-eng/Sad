@@ -13,6 +13,7 @@ class AppCard extends StatelessWidget {
     this.color,
     this.borderColor,
     this.elevation = true,
+    this.radius = 20,
   });
 
   final Widget child;
@@ -21,31 +22,49 @@ class AppCard extends StatelessWidget {
   final Color? color;
   final Color? borderColor;
   final bool elevation;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: color ?? Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor ?? scheme.outline),
-            boxShadow: elevation
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
+    
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: elevation && !isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: color ?? Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(radius),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(
+                color: borderColor ?? (isDark ? scheme.outline : scheme.outline.withValues(alpha: 0.5)),
+                width: 1,
+              ),
+            ),
+            child: child,
           ),
-          child: Padding(padding: padding, child: child),
         ),
       ),
     );
@@ -73,24 +92,43 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 20, color: AppColors.primary),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
         ],
         Expanded(
           child: Text(
             title,
-            style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: t.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+            ),
           ),
         ),
         if (actionLabel != null)
           TextButton(
             onPressed: onAction,
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: AppColors.primary,
+              textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
-            child: Text(actionLabel!),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(actionLabel!),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 10),
+              ],
+            ),
           ),
       ],
     );
@@ -116,25 +154,25 @@ class StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: dense ? 8 : 12, vertical: dense ? 4 : 6),
+          horizontal: dense ? 10 : 14, vertical: dense ? 5 : 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
             Icon(icon, size: dense ? 12 : 14, color: color),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
           ],
           Text(
             label,
             style: TextStyle(
               color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: dense ? 11 : 12.5,
+              fontWeight: FontWeight.w800,
+              fontSize: dense ? 10.5 : 12,
             ),
           ),
         ],
