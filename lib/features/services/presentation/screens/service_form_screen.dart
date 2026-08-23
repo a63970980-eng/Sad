@@ -85,12 +85,29 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                context.pop();
-              },
-              child: Text(l.ok),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.pushReplacement(
+                    '/services/${widget.serviceId}/track/${widget.actionId}?ref=$reference',
+                  );
+                },
+                icon: const Icon(Icons.travel_explore_outlined),
+                label: Text(l.track),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.pop();
+                },
+                child: Text(l.ok),
+              ),
             ),
           ],
         ),
