@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/l10n_lookup.dart';
@@ -9,19 +8,36 @@ import '../../../reports/domain/entities/report.dart';
 import '../../data/services_catalog.dart';
 
 class TrackRequestScreen extends StatefulWidget {
-  const TrackRequestScreen(
-      {super.key, required this.serviceId, required this.actionId});
+  const TrackRequestScreen({
+    super.key,
+    required this.serviceId,
+    required this.actionId,
+    this.initialReference,
+  });
+
   final String serviceId;
   final String actionId;
+  final String? initialReference;
 
   @override
   State<TrackRequestScreen> createState() => _TrackRequestScreenState();
 }
 
 class _TrackRequestScreenState extends State<TrackRequestScreen> {
-  final _ref = TextEditingController();
+  late final TextEditingController _ref;
   bool _loading = false;
   _TrackResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _ref = TextEditingController(text: widget.initialReference);
+    if (widget.initialReference != null && widget.initialReference!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _track();
+      });
+    }
+  }
 
   @override
   void dispose() {

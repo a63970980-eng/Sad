@@ -273,6 +273,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           return TrackRequestScreen(
             serviceId: state.pathParameters['id']!,
             actionId: state.pathParameters['action']!,
+            initialReference: state.uri.queryParameters['ref'],
           );
         },
       ),
