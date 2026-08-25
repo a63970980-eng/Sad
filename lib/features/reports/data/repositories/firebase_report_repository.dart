@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../domain/entities/report.dart';
@@ -49,8 +50,13 @@ class FirebaseReportRepository implements ReportRepository {
       }
       final ref = _storage
           .ref('reports/${report.id}/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await ref.putFile(File(path));
-      uploaded.add(await ref.getDownloadURL());
+      if (kIsWeb) {
+        // On web, path is either a blob URL or network URL
+        uploaded.add(path);
+      } else {
+        await ref.putFile(File(path));
+        uploaded.add(await ref.getDownloadURL());
+      }
     }
 
     final toSave = Report(
