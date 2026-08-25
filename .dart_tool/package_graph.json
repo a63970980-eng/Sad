@@ -202,7 +202,7 @@
     },
     {
       "name": "lottie",
-      "version": "3.5.1",
+      "version": "3.3.3",
       "dependencies": [
         "archive",
         "flutter",
@@ -547,7 +547,7 @@
     },
     {
       "name": "meta",
-      "version": "1.18.0",
+      "version": "1.17.0",
       "dependencies": []
     },
     {
@@ -854,7 +854,7 @@
     },
     {
       "name": "matcher",
-      "version": "0.12.19",
+      "version": "0.12.18",
       "dependencies": [
         "async",
         "meta",
@@ -865,7 +865,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.11",
+      "version": "0.7.9",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -1087,7 +1087,7 @@
     },
     {
       "name": "image_picker_android",
-      "version": "0.8.13+19",
+      "version": "0.8.13+17",
       "dependencies": [
         "flutter",
         "flutter_plugin_android_lifecycle",
@@ -1201,7 +1201,7 @@
     },
     {
       "name": "google_maps_flutter_android",
-      "version": "2.19.12",
+      "version": "2.19.10",
       "dependencies": [
         "flutter",
         "flutter_plugin_android_lifecycle",
@@ -1262,10 +1262,9 @@
     },
     {
       "name": "shared_preferences_android",
-      "version": "2.4.27",
+      "version": "2.4.23",
       "dependencies": [
         "flutter",
-        "meta",
         "shared_preferences_platform_interface"
       ]
     },
@@ -1724,7 +1723,7 @@
     },
     {
       "name": "sqflite",
-      "version": "2.4.3",
+      "version": "2.4.2+1",
       "dependencies": [
         "flutter",
         "path",
@@ -1912,7 +1911,7 @@
     },
     {
       "name": "sqflite_common",
-      "version": "2.5.11",
+      "version": "2.5.8",
       "dependencies": [
         "meta",
         "path",
@@ -1921,7 +1920,7 @@
     },
     {
       "name": "sqflite_platform_interface",
-      "version": "2.4.1",
+      "version": "2.4.0",
       "dependencies": [
         "flutter",
         "meta",
@@ -1932,7 +1931,7 @@
     },
     {
       "name": "sqflite_darwin",
-      "version": "2.4.3+1",
+      "version": "2.4.2",
       "dependencies": [
         "flutter",
         "meta",
@@ -1943,7 +1942,7 @@
     },
     {
       "name": "sqflite_android",
-      "version": "2.4.3",
+      "version": "2.4.2+3",
       "dependencies": [
         "flutter",
         "path",
@@ -1989,7 +1988,7 @@
     },
     {
       "name": "synchronized",
-      "version": "3.4.1+1",
+      "version": "3.4.0+1",
       "dependencies": []
     },
     {

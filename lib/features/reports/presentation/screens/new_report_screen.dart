@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show File;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -334,13 +335,21 @@ class _PhotoStrip extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.file(File(photos[i]),
-                        width: 96, height: 96, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                            width: 96,
-                            height: 96,
-                            color: AppColors.primarySoft,
-                            child: const Icon(Icons.image))),
+                    child: kIsWeb
+                        ? Image.network(photos[i],
+                            width: 96, height: 96, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                                width: 96,
+                                height: 96,
+                                color: AppColors.primarySoft,
+                                child: const Icon(Icons.image)))
+                        : Image.file(File(photos[i]),
+                            width: 96, height: 96, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                                width: 96,
+                                height: 96,
+                                color: AppColors.primarySoft,
+                                child: const Icon(Icons.image))),
                   ),
                   Positioned(
                     top: 4,
