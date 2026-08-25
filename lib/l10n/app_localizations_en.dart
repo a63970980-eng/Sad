@@ -493,4 +493,117 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get search => 'Search';
+
+  @override
+  String get stepNext => 'Next';
+
+  @override
+  String get stepPrevious => 'Previous';
+
+  @override
+  String get reviewAndSubmit => 'Review & Submit';
+
+  @override
+  String stepProgress(Object current, Object total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get districtLabel => 'District in Aden';
+
+  @override
+  String get selectDistrict => 'Select District';
+
+  @override
+  String get districtCrater => 'Crater (Seera)';
+
+  @override
+  String get districtMaalla => 'Mualla';
+
+  @override
+  String get districtTawahi => 'Tawahi';
+
+  @override
+  String get districtKhorMaksar => 'Khor Maksar';
+
+  @override
+  String get districtMansoura => 'Mansoura';
+
+  @override
+  String get districtSheikhOthman => 'Sheikh Othman';
+
+  @override
+  String get districtDarSad => 'Dar Saad';
+
+  @override
+  String get districtBuraiqeh => 'Buraiqeh';
+
+  @override
+  String get reportIdentityType => 'Report Identity';
+
+  @override
+  String get reportIdentityNamed => 'Submit under my real name';
+
+  @override
+  String get reportIdentityAnonymous => 'Submit anonymously';
+
+  @override
+  String get reportIdentityNotice =>
+      'Anonymous reports are treated with equal urgency and strict confidentiality';
+
+  @override
+  String get stepApplicantDetails => 'Applicant Details';
+
+  @override
+  String get stepServiceDetails => 'Service Details';
+
+  @override
+  String get stepDocuments => 'Documents & Attachments';
+
+  @override
+  String get stepReview => 'Review Information';
+
+  @override
+  String get stepCategory => 'Report Category';
+
+  @override
+  String get stepLocation => 'Location';
+
+  @override
+  String get stepDescription => 'Problem Description';
+
+  @override
+  String get stepPhotos => 'Photos & Evidence';
+
+  @override
+  String get stepAdditionalInfo => 'Additional Info';
+
+  @override
+  String get stepIdentity => 'Report Identity';
+
+  @override
+  String get attachDocument => 'Attach Document';
+
+  @override
+  String get documentNotice =>
+      'Please make sure images are clear and match all official records';
+
+  @override
+  String get severityLevel => 'Severity Level';
+
+  @override
+  String get severityLow => 'Minor / Not Urgent';
+
+  @override
+  String get severityMedium => 'Moderate / Needs Attention';
+
+  @override
+  String get severityHigh => 'Critical / Urgent';
+
+  @override
+  String get additionalNotes => 'Additional Notes';
+
+  @override
+  String get additionalNotesHint =>
+      'Enter any additional details to assist field teams...';
 }

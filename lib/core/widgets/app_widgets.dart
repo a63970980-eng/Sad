@@ -320,3 +320,104 @@ class _LoaderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+/// A clean, modern Stepper Header widget for multi-step wizards.
+class AppStepperHeader extends StatelessWidget {
+  const AppStepperHeader({
+    super.key,
+    required this.currentStep,
+    required this.totalSteps,
+    required this.stepTitles,
+    this.primaryColor,
+  });
+
+  final int currentStep;
+  final int totalSteps;
+  final List<String> stepTitles;
+  final Color? primaryColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = primaryColor ?? AppColors.primary;
+    final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final title = currentStep >= 0 && currentStep < stepTitles.length
+        ? stepTitles[currentStep]
+        : '';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: t.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: scheme.onSurface,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${currentStep + 1} / $totalSteps',
+                  style: t.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(totalSteps, (index) {
+              final isCompleted = index < currentStep;
+              final isCurrent = index == currentStep;
+              return Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  height: 6,
+                  margin: EdgeInsets.only(
+                    left: index == totalSteps - 1 ? 0 : 3,
+                    right: index == 0 ? 0 : 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isCompleted
+                        ? color
+                        : isCurrent
+                            ? color.withValues(alpha: 0.6)
+                            : (isDark
+                                ? scheme.outline.withValues(alpha: 0.3)
+                                : const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
