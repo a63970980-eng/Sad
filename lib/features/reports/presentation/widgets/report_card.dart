@@ -1,6 +1,7 @@
-import 'dart:io';
+import 'dart:io' show File;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/app_widgets.dart';
@@ -125,6 +126,11 @@ class _Thumb extends StatelessWidget {
         errorWidget: (_, __, ___) =>
             const Icon(Icons.broken_image_outlined),
       );
+    }
+    if (kIsWeb) {
+      return Image.network(path,
+          width: 56, height: 56, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined));
     }
     return Image.file(File(path),
         width: 56, height: 56, fit: BoxFit.cover,

@@ -1,6 +1,7 @@
-import 'dart:io';
+import 'dart:io' show File;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -165,6 +166,15 @@ class _Photo extends StatelessWidget {
     if (path.startsWith('http')) {
       return CachedNetworkImage(
           imageUrl: path, width: 130, height: 110, fit: BoxFit.cover);
+    }
+    if (kIsWeb) {
+      return Image.network(path,
+          width: 130, height: 110, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+              width: 130,
+              height: 110,
+              color: AppColors.primarySoft,
+              child: const Icon(Icons.image_outlined)));
     }
     return Image.file(File(path),
         width: 130, height: 110, fit: BoxFit.cover,
