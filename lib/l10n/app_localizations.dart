@@ -1051,6 +1051,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search'**
   String get search;
+
+  /// No description provided for @stepNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get stepNext;
+
+  /// No description provided for @stepPrevious.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get stepPrevious;
+
+  /// No description provided for @reviewAndSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Review & Submit'**
+  String get reviewAndSubmit;
+
+  /// No description provided for @stepProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String stepProgress(Object current, Object total);
+
+  /// No description provided for @districtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'District in Aden'**
+  String get districtLabel;
+
+  /// No description provided for @selectDistrict.
+  ///
+  /// In en, this message translates to:
+  /// **'Select District'**
+  String get selectDistrict;
+
+  /// No description provided for @districtCrater.
+  ///
+  /// In en, this message translates to:
+  /// **'Crater (Seera)'**
+  String get districtCrater;
+
+  /// No description provided for @districtMaalla.
+  ///
+  /// In en, this message translates to:
+  /// **'Mualla'**
+  String get districtMaalla;
+
+  /// No description provided for @districtTawahi.
+  ///
+  /// In en, this message translates to:
+  /// **'Tawahi'**
+  String get districtTawahi;
+
+  /// No description provided for @districtKhorMaksar.
+  ///
+  /// In en, this message translates to:
+  /// **'Khor Maksar'**
+  String get districtKhorMaksar;
+
+  /// No description provided for @districtMansoura.
+  ///
+  /// In en, this message translates to:
+  /// **'Mansoura'**
+  String get districtMansoura;
+
+  /// No description provided for @districtSheikhOthman.
+  ///
+  /// In en, this message translates to:
+  /// **'Sheikh Othman'**
+  String get districtSheikhOthman;
+
+  /// No description provided for @districtDarSad.
+  ///
+  /// In en, this message translates to:
+  /// **'Dar Saad'**
+  String get districtDarSad;
+
+  /// No description provided for @districtBuraiqeh.
+  ///
+  /// In en, this message translates to:
+  /// **'Buraiqeh'**
+  String get districtBuraiqeh;
+
+  /// No description provided for @reportIdentityType.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Identity'**
+  String get reportIdentityType;
+
+  /// No description provided for @reportIdentityNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit under my real name'**
+  String get reportIdentityNamed;
+
+  /// No description provided for @reportIdentityAnonymous.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit anonymously'**
+  String get reportIdentityAnonymous;
+
+  /// No description provided for @reportIdentityNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Anonymous reports are treated with equal urgency and strict confidentiality'**
+  String get reportIdentityNotice;
+
+  /// No description provided for @stepApplicantDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Applicant Details'**
+  String get stepApplicantDetails;
+
+  /// No description provided for @stepServiceDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Service Details'**
+  String get stepServiceDetails;
+
+  /// No description provided for @stepDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents & Attachments'**
+  String get stepDocuments;
+
+  /// No description provided for @stepReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Information'**
+  String get stepReview;
+
+  /// No description provided for @stepCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Category'**
+  String get stepCategory;
+
+  /// No description provided for @stepLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get stepLocation;
+
+  /// No description provided for @stepDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Problem Description'**
+  String get stepDescription;
+
+  /// No description provided for @stepPhotos.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos & Evidence'**
+  String get stepPhotos;
+
+  /// No description provided for @stepAdditionalInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional Info'**
+  String get stepAdditionalInfo;
+
+  /// No description provided for @stepIdentity.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Identity'**
+  String get stepIdentity;
+
+  /// No description provided for @attachDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach Document'**
+  String get attachDocument;
+
+  /// No description provided for @documentNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Please make sure images are clear and match all official records'**
+  String get documentNotice;
+
+  /// No description provided for @severityLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Severity Level'**
+  String get severityLevel;
+
+  /// No description provided for @severityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Minor / Not Urgent'**
+  String get severityLow;
+
+  /// No description provided for @severityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Moderate / Needs Attention'**
+  String get severityMedium;
+
+  /// No description provided for @severityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical / Urgent'**
+  String get severityHigh;
+
+  /// No description provided for @additionalNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional Notes'**
+  String get additionalNotes;
+
+  /// No description provided for @additionalNotesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter any additional details to assist field teams...'**
+  String get additionalNotesHint;
 }
 
 class _AppLocalizationsDelegate

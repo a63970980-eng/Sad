@@ -493,4 +493,116 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get search => 'بحث';
+
+  @override
+  String get stepNext => 'التالي';
+
+  @override
+  String get stepPrevious => 'السابق';
+
+  @override
+  String get reviewAndSubmit => 'مراجعة وإرسال';
+
+  @override
+  String stepProgress(Object current, Object total) {
+    return 'الخطوة $current من $total';
+  }
+
+  @override
+  String get districtLabel => 'المديرية في عدن';
+
+  @override
+  String get selectDistrict => 'اختر المديرية';
+
+  @override
+  String get districtCrater => 'صيرة (كريتر)';
+
+  @override
+  String get districtMaalla => 'المعلا';
+
+  @override
+  String get districtTawahi => 'التواهي';
+
+  @override
+  String get districtKhorMaksar => 'خور مكسر';
+
+  @override
+  String get districtMansoura => 'المنصورة';
+
+  @override
+  String get districtSheikhOthman => 'الشيخ عثمان';
+
+  @override
+  String get districtDarSad => 'دار سعد';
+
+  @override
+  String get districtBuraiqeh => 'البريقة';
+
+  @override
+  String get reportIdentityType => 'هوية صاحب البلاغ';
+
+  @override
+  String get reportIdentityNamed => 'تقديم البلاغ باسمي الصريح';
+
+  @override
+  String get reportIdentityAnonymous => 'تقديم البلاغ كمجهول الهوية';
+
+  @override
+  String get reportIdentityNotice =>
+      'البلاغات مجهولة الهوية تعامل بنفس الجدية والسرية التامة';
+
+  @override
+  String get stepApplicantDetails => 'بيانات المالك/المواطن';
+
+  @override
+  String get stepServiceDetails => 'بيانات الخدمة والتجديد';
+
+  @override
+  String get stepDocuments => 'الوثائق والمستندات';
+
+  @override
+  String get stepReview => 'مراجعة البيانات';
+
+  @override
+  String get stepCategory => 'نوع البلاغ';
+
+  @override
+  String get stepLocation => 'تحديد الموقع';
+
+  @override
+  String get stepDescription => 'وصف المشكلة';
+
+  @override
+  String get stepPhotos => 'الصور والأدلة';
+
+  @override
+  String get stepAdditionalInfo => 'معلومات إضافية';
+
+  @override
+  String get stepIdentity => 'هوية البلاغ';
+
+  @override
+  String get attachDocument => 'إرفاق مستند / وثيقة';
+
+  @override
+  String get documentNotice =>
+      'يرجى التأكد من وضوح الصورة وتطابق كافة البيانات';
+
+  @override
+  String get severityLevel => 'مستوى خطورة المشكلة';
+
+  @override
+  String get severityLow => 'طفيف / غير مستعجل';
+
+  @override
+  String get severityMedium => 'متوسط / ينبغي معالجته';
+
+  @override
+  String get severityHigh => 'حرج / خطير جداً';
+
+  @override
+  String get additionalNotes => 'ملاحظات وتفاصيل إضافية';
+
+  @override
+  String get additionalNotesHint => 'أدخل أي ملاحظات تساعد الفرق الميدانية...';
 }

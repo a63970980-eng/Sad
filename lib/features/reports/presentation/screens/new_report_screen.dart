@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/l10n_lookup.dart';
 import '../../../../core/utils/location_service.dart';
+import '../../../../core/widgets/app_widgets.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/report.dart';
 import '../providers/report_providers.dart';
@@ -21,19 +22,89 @@ class NewReportScreen extends ConsumerStatefulWidget {
 }
 
 class _NewReportScreenState extends ConsumerState<NewReportScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _title = TextEditingController();
-  final _desc = TextEditingController();
+  int _currentStep = 0;
+  final List<GlobalKey<FormState>> _formKeys = List.generate(8, (_) => GlobalKey<FormState>());
+
+  // Step 1: Category
   ReportCategory? _category;
-  final List<String> _photos = [];
+
+  // Step 2: Location & District
   CapturedLocation? _location;
   bool _locating = false;
+  String _selectedDistrict = 'صيرة (كريتر)';
+
+  final List<String> _adenDistricts = [
+    'صيرة (كريتر)',
+    'المعلا',
+    'التواهي',
+    'خور مكسر',
+    'المنصورة',
+    'الشيخ عثمان',
+    'دار سعد',
+    'البريقة',
+  ];
+
+  // Step 3: Description
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+
+  // Step 4: Photos
+  final List<String> _photos = [];
+
+  // Step 5: Additional dynamic questions
+  String _severityLevel = 'متوسط / ينبغي معالجته';
+  final _additionalNotesController = TextEditingController();
+
+  // Step 6: Identity (Named vs Anonymous)
+  bool _isAnonymous = false;
 
   @override
   void dispose() {
-    _title.dispose();
-    _desc.dispose();
+    _titleController.dispose();
+    _descController.dispose();
+    _additionalNotesController.dispose();
     super.dispose();
+  }
+
+  List<String> _getStepTitles(AppLocalizations l) {
+    return [
+      l.stepCategory,
+      l.stepLocation,
+      l.stepDescription,
+      l.stepPhotos,
+      l.stepAdditionalInfo,
+      l.stepIdentity,
+      l.stepReview,
+    ];
+  }
+
+  bool _validateCurrentStep(AppLocalizations l) {
+    if (_currentStep == 0) {
+      if (_category == null) {
+        _snack(l.reportCategory);
+        return false;
+      }
+    } else if (_currentStep < _formKeys.length && _formKeys[_currentStep].currentState != null) {
+      return _formKeys[_currentStep].currentState!.validate();
+    }
+    return true;
+  }
+
+  void _nextStep(int totalSteps, AppLocalizations l) {
+    if (!_validateCurrentStep(l)) return;
+    FocusScope.of(context).unfocus();
+    if (_currentStep < totalSteps - 1) {
+      setState(() => _currentStep++);
+    } else {
+      _submit();
+    }
+  }
+
+  void _previousStep() {
+    FocusScope.of(context).unfocus();
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+    }
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -68,8 +139,7 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
               },
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.photo_library_outlined, color: AppColors.info),
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.info),
               title: Text(l.reportPhotos),
               onTap: () {
                 Navigator.pop(context);
@@ -89,10 +159,12 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
       final loc = await ref.read(locationServiceProvider).getCurrent();
       setState(() => _location = loc);
     } catch (e) {
-      // In demo / no-permission, fall back to Aden center so the flow works.
-      setState(() => _location = const CapturedLocation(
-          latitude: 12.7855, longitude: 45.0187, address: 'عدن'));
-      _snack(AppLocalizations.of(context).locationCaptured);
+      // In demo / no-permission, fall back to Aden center so the flow works seamlessly.
+      setState(() => _location = CapturedLocation(
+          latitude: 12.7855, longitude: 45.0187, address: 'عدن - $_selectedDistrict'));
+      if (mounted) {
+        _snack(AppLocalizations.of(context).locationCaptured);
+      }
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -100,124 +172,471 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _submit() async {
     final l = AppLocalizations.of(context);
-    if (!_formKey.currentState!.validate()) return;
-    if (_category == null) {
-      _snack(l.reportCategory);
-      return;
-    }
     FocusScope.of(context).unfocus();
 
+    final desc = '${_descController.text.trim()}\n[المديرية: $_selectedDistrict]\n[الخطورة: $_severityLevel]\n[الهوية: ${_isAnonymous ? "مجهول الهوية" : "باسم المستخدم"}]${_additionalNotesController.text.isNotEmpty ? "\n[ملاحظات: ${_additionalNotesController.text.trim()}]" : ""}';
+
     final report = await ref.read(submitReportControllerProvider.notifier).submit(
-          title: _title.text.trim(),
-          description: _desc.text.trim(),
+          title: _titleController.text.trim(),
+          description: desc,
           category: _category!,
           photos: _photos,
           latitude: _location?.latitude,
           longitude: _location?.longitude,
-          address: _location?.address,
+          address: _location?.address ?? 'عدن - $_selectedDistrict',
         );
 
     if (!mounted) return;
     if (report != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.reportSubmitted),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-      context.pop();
+      _showSuccess(report.id);
     } else {
       _snack(l.errorGeneric);
     }
   }
 
+  void _showSuccess(String reportId) {
+    final l = AppLocalizations.of(context);
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outline,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: 84,
+              height: 84,
+              decoration: const BoxDecoration(
+                color: AppColors.primarySoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle_rounded,
+                  color: AppColors.primary, size: 52),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              l.reportSubmitted,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'رقم البلاغ المرجعي هو $reportId. تم تحويل البلاغ بنجاح للجهات المختصة بمديرية $_selectedDistrict.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.pop();
+                },
+                icon: const Icon(Icons.check_rounded),
+                label: Text(l.ok),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final submitting =
-        ref.watch(submitReportControllerProvider).isLoading;
-    final t = Theme.of(context).textTheme;
+    final submitting = ref.watch(submitReportControllerProvider).isLoading;
+    final stepTitles = _getStepTitles(l);
+    final totalSteps = stepTitles.length;
+    final categoryColor = _category?.color ?? AppColors.primary;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.newReport)),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      appBar: AppBar(
+        title: Text(l.newReport),
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          // Stepper Header Component
+          AppStepperHeader(
+            currentStep: _currentStep,
+            totalSteps: totalSteps,
+            stepTitles: stepTitles,
+            primaryColor: categoryColor,
+          ),
+
+          // Scrollable Step Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: IndexedStack(
+                index: _currentStep,
+                children: [
+                  for (int i = 0; i < totalSteps; i++)
+                    Form(
+                      key: _formKeys[i],
+                      child: _buildStepContent(i, totalSteps, l, submitting),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // Bottom Action Navigation Bar
+          _buildBottomNavigationBar(totalSteps, l, submitting, categoryColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepContent(
+    int stepIndex,
+    int totalSteps,
+    AppLocalizations l,
+    bool submitting,
+  ) {
+    switch (stepIndex) {
+      case 0:
+        return _buildCategoryStep(l);
+      case 1:
+        return _buildLocationStep(l);
+      case 2:
+        return _buildDescriptionStep(l);
+      case 3:
+        return _buildPhotosStep(l);
+      case 4:
+        return _buildAdditionalInfoStep(l);
+      case 5:
+        return _buildIdentityStep(l);
+      case 6:
+        return _buildReviewStep(l);
+      default:
+        return Container();
+    }
+  }
+
+  // --- Individual Step UI Components ---
+
+  Widget _buildCategoryStep(AppLocalizations l) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.reportCategory),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
-            _Label(l.reportCategory),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final c in ReportCategory.values)
-                  _CategoryChip(
-                    category: c,
-                    label: tr(l, c.labelKey),
-                    selected: _category == c,
-                    onTap: () => setState(() => _category = c),
-                  ),
-              ],
+            for (final c in ReportCategory.values)
+              _CategoryChip(
+                category: c,
+                label: tr(l, c.labelKey),
+                selected: _category == c,
+                onTap: () => setState(() => _category = c),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationStep(AppLocalizations l) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.districtLabel),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedDistrict,
+          items: _adenDistricts
+              .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedDistrict = val);
+          },
+          decoration: InputDecoration(hintText: l.selectDistrict),
+        ),
+        const SizedBox(height: 20),
+        _Label(l.reportLocation),
+        const SizedBox(height: 8),
+        _LocationCard(
+          location: _location,
+          loading: _locating,
+          onCapture: _captureLocation,
+          capturedLabel: l.locationCaptured,
+          actionLabel: l.useCurrentLocation,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionStep(AppLocalizations l) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.reportTitleLabel),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _titleController,
+          decoration: InputDecoration(hintText: l.reportTitleHint),
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
+        ),
+        const SizedBox(height: 16),
+        _Label(l.reportDescLabel),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _descController,
+          maxLines: 5,
+          decoration: InputDecoration(hintText: l.reportDescHint),
+          validator: (v) =>
+              (v == null || v.trim().length < 10) ? l.fieldRequired : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotosStep(AppLocalizations l) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.reportPhotos),
+        const SizedBox(height: 6),
+        Text(
+          'يمكنك التقاط أو رفع صور لتأكيد حالة المشكلة ومساعدة الفرق الميدانية.',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _PhotoStrip(
+          photos: _photos,
+          onAdd: _showPhotoSheet,
+          onRemove: (i) => setState(() => _photos.removeAt(i)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalInfoStep(AppLocalizations l) {
+    // Dynamic fields per category
+    String dynamicQuestion = 'معلومات وملاحظات إضافية حول البلاغ';
+    if (_category == ReportCategory.powerOutage) {
+      dynamicQuestion = 'تقدير مدة انقطاع التيار الكهربائي أو رقم المحول إن وجد';
+    } else if (_category == ReportCategory.waterLeak) {
+      dynamicQuestion = 'حجم تسرب المياه ومدى تأثيره على الطريق أو المنازل المجاوة';
+    } else if (_category == ReportCategory.roadDamage) {
+      dynamicQuestion = 'أثر التلف على حركة السير أو وقوع حوادث مرورية';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.severityLevel),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _severityLevel,
+          items: [
+            DropdownMenuItem(value: l.severityLow, child: Text(l.severityLow)),
+            DropdownMenuItem(value: l.severityMedium, child: Text(l.severityMedium)),
+            DropdownMenuItem(value: l.severityHigh, child: Text(l.severityHigh)),
+          ],
+          onChanged: (val) {
+            if (val != null) setState(() => _severityLevel = val);
+          },
+        ),
+        const SizedBox(height: 20),
+        _Label(dynamicQuestion),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _additionalNotesController,
+          maxLines: 3,
+          decoration: InputDecoration(hintText: l.additionalNotesHint),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIdentityStep(AppLocalizations l) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.reportIdentityType),
+        const SizedBox(height: 6),
+        Text(
+          l.reportIdentityNotice,
+          style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+        ),
+        const SizedBox(height: 20),
+        RadioListTile<bool>(
+          value: false,
+          groupValue: _isAnonymous,
+          activeColor: AppColors.primary,
+          title: Text(l.reportIdentityNamed,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: const Text('سيتم ربط البلاغ برقم هاتفك وملفك في التطبيق'),
+          onChanged: (val) {
+            if (val != null) setState(() => _isAnonymous = val);
+          },
+        ),
+        const Divider(),
+        RadioListTile<bool>(
+          value: true,
+          groupValue: _isAnonymous,
+          activeColor: AppColors.primary,
+          title: Text(l.reportIdentityAnonymous,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: const Text('لن تظهر أي بيانات شخصية للفرق المعنية بالبلاغ'),
+          onChanged: (val) {
+            if (val != null) setState(() => _isAnonymous = val);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewStep(AppLocalizations l) {
+    final t = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'مراجعة وتأكيد البلاغ',
+          style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'يرجى مراجعة تفاصيل البلاغ قبل الإرسال لضمان وصول التنبيه بدقة للجهة المعنية.',
+          style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 20),
+        AppCard(
+          borderColor: (_category?.color ?? AppColors.primary).withValues(alpha: 0.3),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _buildReviewRow(l.reportCategory, _category != null ? tr(l, _category!.labelKey) : 'غير محدد'),
+              const Divider(height: 20),
+              _buildReviewRow(l.districtLabel, _selectedDistrict),
+              const Divider(height: 20),
+              _buildReviewRow(l.reportTitleLabel, _titleController.text.isNotEmpty ? _titleController.text : 'لم يُدخل'),
+              const Divider(height: 20),
+              _buildReviewRow(l.severityLevel, _severityLevel),
+              const Divider(height: 20),
+              _buildReviewRow(l.reportIdentityType, _isAnonymous ? l.reportIdentityAnonymous : l.reportIdentityNamed),
+              const Divider(height: 20),
+              _buildReviewRow(l.reportPhotos, _photos.isNotEmpty ? 'تم إرفاق ${_photos.length} صور' : 'بدون صور'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.start,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13.5,
             ),
-            const SizedBox(height: 20),
-            _Label(l.reportTitleLabel),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _title,
-              decoration: InputDecoration(hintText: l.reportTitleHint),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomNavigationBar(
+    int totalSteps,
+    AppLocalizations l,
+    bool submitting,
+    Color categoryColor,
+  ) {
+    final isFirstStep = _currentStep == 0;
+    final isLastStep = _currentStep == totalSteps - 1;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (!isFirstStep)
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: submitting ? null : _previousStep,
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: Text(l.stepPrevious),
+              ),
             ),
-            const SizedBox(height: 16),
-            _Label(l.reportDescLabel),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _desc,
-              maxLines: 4,
-              decoration: InputDecoration(hintText: l.reportDescHint),
-              validator: (v) =>
-                  (v == null || v.trim().length < 10) ? l.fieldRequired : null,
-            ),
-            const SizedBox(height: 20),
-            _Label(l.reportPhotos),
-            const SizedBox(height: 8),
-            _PhotoStrip(
-              photos: _photos,
-              onAdd: _showPhotoSheet,
-              onRemove: (i) => setState(() => _photos.removeAt(i)),
-            ),
-            const SizedBox(height: 20),
-            _Label(l.reportLocation),
-            const SizedBox(height: 8),
-            _LocationCard(
-              location: _location,
-              loading: _locating,
-              onCapture: _captureLocation,
-              capturedLabel: l.locationCaptured,
-              actionLabel: l.useCurrentLocation,
-            ),
-            const SizedBox(height: 28),
-            FilledButton.icon(
-              onPressed: submitting ? null : _submit,
+          if (!isFirstStep) const SizedBox(width: 12),
+          Expanded(
+            flex: isFirstStep ? 2 : 1,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: categoryColor,
+              ),
+              onPressed: submitting ? null : () => _nextStep(totalSteps, l),
               icon: submitting
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white)))
-                  : const Icon(Icons.send_rounded),
-              label: Text(l.submitReport),
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : Icon(isLastStep ? Icons.send_rounded : Icons.arrow_forward_rounded),
+              label: Text(isLastStep ? l.reviewAndSubmit : l.stepNext),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -227,11 +646,13 @@ class _Label extends StatelessWidget {
   const _Label(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text,
-      style: Theme.of(context)
-          .textTheme
-          .labelLarge
-          ?.copyWith(fontWeight: FontWeight.w700));
+  Widget build(BuildContext context) => Text(
+        text,
+        style: Theme.of(context)
+            .textTheme
+            .labelLarge
+            ?.copyWith(fontWeight: FontWeight.w700),
+      );
 }
 
 class _CategoryChip extends StatelessWidget {
