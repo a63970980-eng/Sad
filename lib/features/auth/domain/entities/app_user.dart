@@ -26,19 +26,16 @@ class AppUser extends Equatable {
       (fullName != null && fullName!.trim().isNotEmpty) ? fullName! : phoneNumber;
 
   bool get isGovernmentUser => const {
-        'admin',
-        'government_admin',
-        'super_admin',
-        'general_manager',
+        'system_admin',
+        'entity_manager',
         'supervisor',
         'field_worker',
+        'employee',
       }.contains(role);
 
   bool get canAccessAdminDashboard => const {
-        'admin',
-        'government_admin',
-        'super_admin',
-        'general_manager',
+        'system_admin',
+        'entity_manager',
         'supervisor',
       }.contains(role);
 
