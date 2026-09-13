@@ -41,4 +41,15 @@ class AppNotification {
 
   String title(bool isAr) => isAr ? titleAr : titleEn;
   String body(bool isAr) => isAr ? bodyAr : bodyEn;
+
+  AppNotification copyWith({bool? read}) => AppNotification(
+        id: id,
+        titleAr: titleAr,
+        titleEn: titleEn,
+        bodyAr: bodyAr,
+        bodyEn: bodyEn,
+        type: type,
+        date: date,
+        read: read ?? this.read,
+      );
 }
