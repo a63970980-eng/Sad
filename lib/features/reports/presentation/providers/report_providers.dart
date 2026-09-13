@@ -46,7 +46,7 @@ class SubmitReportController extends AsyncNotifier<Report?> {
     required String description,
     required ReportCategory category,
     required List<String> photos,
-    required bool isAnonymous,
+    bool isAnonymous = false,
     double? latitude,
     double? longitude,
     String? address,
