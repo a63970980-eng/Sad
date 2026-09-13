@@ -76,17 +76,23 @@ class SupabaseReportRepository implements ReportRepository {
         .maybeSingle();
 
     // Older UI builds encoded the identity choice in the description. Keep that
-    // path compatible while persisting a first-class database flag for new data.
-    final anonymousFromLegacyDescription =
-        report.description.contains('[الهوية: مجهول الهوية]');
+    // path compatible, but never persist the privacy marker as citizen content.
+    final legacyAnonymousMarker = '[الهوية: مجهول الهوية]';
+    final anonymousFromLegacyDescription = report.description.contains(legacyAnonymousMarker);
     final isAnonymous = report.isAnonymous || anonymousFromLegacyDescription;
+    final sanitizedDescription = report.description
+        .replaceAll('\n[الهوية: مجهول الهوية]', '')
+        .replaceAll('\n[الهوية: باسم المستخدم]', '')
+        .replaceAll('[الهوية: مجهول الهوية]', '')
+        .replaceAll('[الهوية: باسم المستخدم]', '')
+        .trim();
 
     final row = await _client.from('reports').insert({
       'id': report.id,
       'citizen_id': user.id,
       'category_id': category?['id'],
       'title': report.title,
-      'description': report.description,
+      'description': sanitizedDescription,
       'status': _databaseStatus(report.status),
       'priority': 'normal',
       'latitude': report.latitude,
