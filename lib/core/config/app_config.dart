@@ -1,5 +1,3 @@
-import 'firebase_options.dart';
-
 /// Runtime configuration and backend capability flags.
 ///
 /// Production builds intentionally default to real Supabase authentication.
