@@ -9,53 +9,61 @@ import '../../domain/app_notification.dart';
 
 class NotificationsController extends Notifier<List<AppNotification>> {
   bool _loading = false;
-  StreamSubscription? _subscription;
+  StreamSubscription? _authSubscription;
 
   @override
   List<AppNotification> build() {
-    ref.onDispose(() => _subscription?.cancel());
-    if (AppConfig.supabaseDataEnabled && SupabaseConfig.client.auth.currentUser != null) {
+    ref.onDispose(() => _authSubscription?.cancel());
+    _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen((_) {
+      if (!ref.mounted) return;
+      ref.invalidateSelf();
+    });
+
+    final user = SupabaseConfig.client.auth.currentUser;
+    if (AppConfig.supabaseDataEnabled && user != null) {
       scheduleMicrotask(_loadFromSupabase);
-      _subscribeRealtime();
+      _subscribeRealtime(user.id);
       return const [];
     }
     return AppConfig.demoMode ? _demoNotifications() : const [];
   }
 
   Future<void> _loadFromSupabase() async {
-    if (_loading) return;
+    if (_loading || !ref.mounted) return;
     _loading = true;
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
-      if (userId == null) return;
-      final rows = await SupabaseConfig.client.from('notifications')
+      if (userId == null || !AppConfig.supabaseDataEnabled) return;
+      final rows = await SupabaseConfig.client
+          .from('notifications')
           .select('id,title_ar,body_ar,type,read_at,created_at')
           .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(100);
+      if (!ref.mounted) return;
       state = List<Map<String, dynamic>>.from(rows).map(_fromRow).toList();
     } catch (_) {
-      // Notification failures are intentionally non-blocking.
+      // Notifications are non-blocking; keep the current state on failure.
     } finally {
       _loading = false;
     }
   }
 
-  void _subscribeRealtime() {
-    final userId = SupabaseConfig.client.auth.currentUser?.id;
-    if (userId == null) return;
+  void _subscribeRealtime(String userId) {
     final channel = SupabaseConfig.client.channel('notifications-$userId');
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'notifications',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'user_id',
-        value: userId,
-      ),
-      callback: (_) => unawaited(_loadFromSupabase()),
-    ).subscribe();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => unawaited(_loadFromSupabase()),
+        )
+        .subscribe();
     ref.onDispose(() => SupabaseConfig.client.removeChannel(channel));
   }
 
@@ -78,26 +86,36 @@ class NotificationsController extends Notifier<List<AppNotification>> {
       };
 
   Future<void> markAllRead() async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    final previous = state;
     state = [for (final n in state) n..read = true];
     state = [...state];
-    final userId = SupabaseConfig.client.auth.currentUser?.id;
-    if (AppConfig.supabaseDataEnabled && userId != null) {
+    if (!AppConfig.supabaseDataEnabled || userId == null) return;
+    try {
       await SupabaseConfig.client
           .from('notifications')
           .update({'read_at': DateTime.now().toIso8601String()})
           .eq('user_id', userId)
           .isFilter('read_at', null);
+    } catch (_) {
+      if (ref.mounted) state = previous;
     }
   }
 
   Future<void> markRead(String id) async {
+    final userId = SupabaseConfig.client.auth.currentUser?.id;
+    final previous = state;
     state = [for (final n in state) if (n.id == id) (n..read = true) else n];
     state = [...state];
-    if (AppConfig.supabaseDataEnabled) {
+    if (!AppConfig.supabaseDataEnabled || userId == null) return;
+    try {
       await SupabaseConfig.client
           .from('notifications')
           .update({'read_at': DateTime.now().toIso8601String()})
-          .eq('id', id);
+          .eq('id', id)
+          .eq('user_id', userId);
+    } catch (_) {
+      if (ref.mounted) state = previous;
     }
   }
 
