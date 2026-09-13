@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/settings_controller.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/map_place.dart';
 import '../widgets/canvas_map.dart';
 
-/// Provider holding which place types are visible.
 final mapFilterProvider =
     StateProvider<Set<PlaceType>>((ref) => PlaceType.values.toSet());
 
@@ -26,18 +24,18 @@ class MapScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final isAr =
-        ref.watch(settingsControllerProvider).locale.languageCode.startsWith('ar');
+    final isAr = ref
+        .watch(settingsControllerProvider)
+        .locale
+        .languageCode
+        .startsWith('ar');
     final filter = ref.watch(mapFilterProvider);
-
-    final visible =
-        MapData.places.where((p) => filter.contains(p.type)).toList();
+    final visible = MapData.places.where((p) => filter.contains(p.type)).toList();
 
     return Scaffold(
       appBar: AppBar(title: Text(l.mapTitle)),
       body: Column(
         children: [
-          // Filter chips
           SizedBox(
             height: 56,
             child: ListView(
