@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/config/supabase_config.dart';
+import '../../data/repositories/government_employee_repository.dart';
 import '../../data/repositories/mock_admin_repository.dart';
 import '../../data/repositories/supabase_admin_repository.dart';
 import '../../domain/entities/dashboard_stats.dart';
@@ -16,20 +17,22 @@ final adminRepositoryProvider = Provider<AdminRepository>((ref) {
   throw StateError('جلسة حكومية مطلوبة للوصول إلى لوحة الإدارة.');
 });
 
-final dashboardStatsProvider =
-    FutureProvider.autoDispose<DashboardStats>((ref) async {
-  final repo = ref.watch(adminRepositoryProvider);
-  return repo.getDashboardStats();
+final governmentEmployeeRepositoryProvider = Provider<GovernmentEmployeeRepository>((ref) {
+  return GovernmentEmployeeRepository();
 });
 
-final regionalStatsProvider =
-    FutureProvider.autoDispose<List<RegionalReportStats>>((ref) async {
-  final repo = ref.watch(adminRepositoryProvider);
-  return repo.getRegionalStats();
+final governmentEmployeesProvider = FutureProvider.autoDispose<List<GovernmentEmployee>>((ref) async {
+  return ref.watch(governmentEmployeeRepositoryProvider).listActive();
 });
 
-final recentActivityProvider =
-    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final repo = ref.watch(adminRepositoryProvider);
-  return repo.getRecentActivity(10);
+final dashboardStatsProvider = FutureProvider.autoDispose<DashboardStats>((ref) async {
+  return ref.watch(adminRepositoryProvider).getDashboardStats();
+});
+
+final regionalStatsProvider = FutureProvider.autoDispose<List<RegionalReportStats>>((ref) async {
+  return ref.watch(adminRepositoryProvider).getRegionalStats();
+});
+
+final recentActivityProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  return ref.watch(adminRepositoryProvider).getRecentActivity(10);
 });
