@@ -13,17 +13,14 @@ import '../../domain/repositories/report_repository.dart';
 final _mockRepoSingleton = MockReportRepository();
 
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
-  // Supabase is selected only after a real Supabase session exists. This keeps
-  // the existing demo/Firebase experience intact until Supabase Auth is fully
-  // enabled, while making the production adapter the next backend in line.
-  if (AppConfig.supabaseReady && SupabaseConfig.client.auth.currentUser != null) {
+  if (AppConfig.supabaseDataEnabled &&
+      SupabaseConfig.client.auth.currentUser != null) {
     return SupabaseReportRepository();
   }
   if (AppConfig.demoMode) return _mockRepoSingleton;
   return FirebaseReportRepository();
 });
 
-/// Live list of the current user's reports.
 final userReportsProvider = StreamProvider<List<Report>>((ref) {
   final repo = ref.watch(reportRepositoryProvider);
   final user = ref.watch(currentUserProvider);
@@ -31,8 +28,7 @@ final userReportsProvider = StreamProvider<List<Report>>((ref) {
   return repo.watchUserReports(uid);
 });
 
-final reportByIdProvider =
-    FutureProvider.family<Report?, String>((ref, id) async {
+final reportByIdProvider = FutureProvider.family<Report?, String>((ref, id) async {
   final reports = ref.watch(userReportsProvider).valueOrNull;
   if (reports != null) {
     for (final r in reports) {
@@ -42,7 +38,6 @@ final reportByIdProvider =
   return ref.watch(reportRepositoryProvider).getById(id);
 });
 
-/// Handles submitting a new report.
 class SubmitReportController extends AsyncNotifier<Report?> {
   @override
   Future<Report?> build() async => null;
@@ -60,9 +55,6 @@ class SubmitReportController extends AsyncNotifier<Report?> {
     final repo = ref.read(reportRepositoryProvider);
     final user = ref.read(currentUserProvider);
     final now = DateTime.now();
-    // The relational Supabase schema uses UUID primary keys. Firebase/demo
-    // identifiers remain untouched because this is only used by the selected
-    // repository.
     final id = const Uuid().v4();
 
     final report = Report(
@@ -88,4 +80,5 @@ class SubmitReportController extends AsyncNotifier<Report?> {
 
 final submitReportControllerProvider =
     AsyncNotifierProvider<SubmitReportController, Report?>(
-        SubmitReportController.new);
+  SubmitReportController.new,
+);
