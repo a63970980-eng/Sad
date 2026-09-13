@@ -4,26 +4,27 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../data/repositories/firebase_auth_repository.dart';
 import '../../data/repositories/mock_auth_repository.dart';
+import '../../data/repositories/supabase_auth_repository.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-/// Picks the real Firebase repo or the mock based on demo mode.
+/// Uses Supabase Auth whenever the production backend is initialized.
+/// Firebase/mock remains available as a safe fallback for environments where
+/// Supabase cannot initialize.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  if (AppConfig.supabaseReady) return SupabaseAuthRepository();
   if (AppConfig.demoMode) return MockAuthRepository();
   return FirebaseAuthRepository();
 });
 
-/// Streams the signed-in user (null when logged out).
 final authStateProvider = StreamProvider<AppUser?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges();
 });
 
-/// Convenience: the current user synchronously, when available.
 final currentUserProvider = Provider<AppUser?>((ref) {
   return ref.watch(authStateProvider).valueOrNull;
 });
 
-/// The phone verification flow state.
 enum OtpStage { idle, codeSent, verifying, success, error }
 
 class LoginState {
@@ -78,17 +79,25 @@ class LoginController extends Notifier<LoginState> {
       return true;
     } catch (_) {
       state = state.copyWith(
-          loading: false, stage: OtpStage.error, errorKey: 'loginFailed');
+        loading: false,
+        stage: OtpStage.error,
+        errorKey: 'loginFailed',
+      );
       return false;
     }
   }
 
   Future<bool> verify(String smsCode) async {
-    if (state.verificationId == null) return false;
-    state = state.copyWith(loading: true, stage: OtpStage.verifying, errorKey: null);
+    final verificationId = state.verificationId;
+    if (verificationId == null) return false;
+    state = state.copyWith(
+      loading: true,
+      stage: OtpStage.verifying,
+      errorKey: null,
+    );
     try {
       final user = await _repo.confirmOtp(
-        verificationId: state.verificationId!,
+        verificationId: verificationId,
         smsCode: smsCode,
       );
       await _secure.saveUserId(user.uid);
@@ -96,7 +105,10 @@ class LoginController extends Notifier<LoginState> {
       return true;
     } catch (_) {
       state = state.copyWith(
-          loading: false, stage: OtpStage.error, errorKey: 'invalidOtp');
+        loading: false,
+        stage: OtpStage.error,
+        errorKey: 'invalidOtp',
+      );
       return false;
     }
   }
@@ -107,7 +119,6 @@ class LoginController extends Notifier<LoginState> {
 final loginControllerProvider =
     NotifierProvider<LoginController, LoginState>(LoginController.new);
 
-/// Updates / persists the user profile.
 final profileControllerProvider =
     AsyncNotifierProvider<ProfileController, AppUser?>(ProfileController.new);
 
