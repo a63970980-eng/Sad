@@ -139,10 +139,10 @@ class SupabaseReportRepository implements ReportRepository {
       };
 
   ReportStatus _appStatus(String? value) => switch (value) {
-        'in_progress' || 'inProgress' => ReportStatus.inProgress,
         'reviewing' => ReportStatus.reviewing,
-        'resolved' => ReportStatus.resolved,
-        'rejected' => ReportStatus.rejected,
+        'assigned' || 'in_progress' || 'inProgress' => ReportStatus.inProgress,
+        'resolved' || 'closed' => ReportStatus.resolved,
+        'rejected' || 'cancelled' => ReportStatus.rejected,
         _ => ReportStatus.submitted,
       };
 
