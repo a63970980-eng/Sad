@@ -22,7 +22,8 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Stream<AppUser?> authStateChanges() async* {
-    yield currentUser;
+    final initial = currentUser;
+    yield initial == null ? null : await fetchProfile(initial.uid) ?? initial;
     await for (final event in _client.auth.onAuthStateChange) {
       final user = event.session?.user;
       if (user == null) {
@@ -80,6 +81,7 @@ class SupabaseAuthRepository implements AuthRepository {
       email: data['email'] as String? ?? authUser?.email,
       photoUrl: data['photo_url'] as String?,
       createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ?? DateTime.now(),
+      role: data['role'] as String? ?? 'citizen',
     );
   }
 
@@ -95,7 +97,7 @@ class SupabaseAuthRepository implements AuthRepository {
       'phone': user.phoneNumber,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', user.uid);
-    return user;
+    return fetchProfile(user.uid).then((value) => value ?? user);
   }
 
   @override
