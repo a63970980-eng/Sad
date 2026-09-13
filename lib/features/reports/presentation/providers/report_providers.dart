@@ -17,9 +17,6 @@ final reportRepositoryProvider = Provider<ReportRepository>((ref) {
     return SupabaseReportRepository();
   }
   if (AppConfig.demoMode) return _mockRepoSingleton;
-
-  // Production has no legacy report backend. Fail closed when Supabase is
-  // unavailable rather than silently writing citizen data elsewhere.
   return SupabaseReportRepository();
 });
 
@@ -49,6 +46,7 @@ class SubmitReportController extends AsyncNotifier<Report?> {
     required String description,
     required ReportCategory category,
     required List<String> photos,
+    required bool isAnonymous,
     double? latitude,
     double? longitude,
     String? address,
@@ -76,6 +74,7 @@ class SubmitReportController extends AsyncNotifier<Report?> {
       longitude: longitude,
       address: address,
       userId: user?.uid ?? 'me',
+      isAnonymous: isAnonymous,
       timeline: [TimelineEntry(status: ReportStatus.submitted, date: now)],
     );
     final result = await AsyncValue.guard(
