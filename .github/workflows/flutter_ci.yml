@@ -26,6 +26,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Verify backend dependency boundary
+        shell: bash
+        run: |
+          if flutter pub deps --style=compact | grep -Eiq '(^|[[:space:]])(firebase|cloud_firestore|firebase_auth|firebase_core|firebase_storage|firebase_messaging|flutterfire)'; then
+            echo 'Firebase packages are still present in the resolved dependency graph.'
+            exit 1
+          fi
+
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
