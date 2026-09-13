@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/config/firebase_options.dart';
+import 'core/config/supabase_config.dart';
 import 'core/storage/prefs_service.dart';
 
 Future<void> main() async {
@@ -17,8 +18,20 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Firebase. If credentials are still placeholders (or init fails),
-  // fall back to DEMO mode so the app remains fully usable.
+  // Initialize Supabase first. It is the target production backend for the
+  // relational government workflow. RLS remains the source of truth for
+  // authorization; no service-role key is ever shipped in the app.
+  try {
+    await SupabaseConfig.initialize();
+    AppConfig.supabaseReady = true;
+  } catch (e) {
+    debugPrint('Supabase init failed: $e');
+    AppConfig.supabaseReady = false;
+  }
+
+  // Keep Firebase temporarily for features that have not yet been migrated.
+  // It will be removed only after authentication, notifications, storage and
+  // all feature repositories are migrated and verified on the new backend.
   if (!DefaultFirebaseOptions.isPlaceholder) {
     try {
       await Firebase.initializeApp(
@@ -26,7 +39,7 @@ Future<void> main() async {
       );
       AppConfig.demoMode = false;
     } catch (e) {
-      debugPrint('Firebase init failed, running in demo mode: $e');
+      debugPrint('Firebase init failed: $e');
       AppConfig.demoMode = true;
     }
   } else {
