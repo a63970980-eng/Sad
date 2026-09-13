@@ -9,6 +9,7 @@ class AppUser extends Equatable {
     this.email,
     this.photoUrl,
     this.createdAt,
+    this.role = 'citizen',
   });
 
   final String uid;
@@ -18,9 +19,28 @@ class AppUser extends Equatable {
   final String? email;
   final String? photoUrl;
   final DateTime? createdAt;
+  /// Server-controlled role. Never accept role changes from citizen profile updates.
+  final String role;
 
   String get displayName =>
       (fullName != null && fullName!.trim().isNotEmpty) ? fullName! : phoneNumber;
+
+  bool get isGovernmentUser => const {
+        'admin',
+        'government_admin',
+        'super_admin',
+        'general_manager',
+        'supervisor',
+        'field_worker',
+      }.contains(role);
+
+  bool get canAccessAdminDashboard => const {
+        'admin',
+        'government_admin',
+        'super_admin',
+        'general_manager',
+        'supervisor',
+      }.contains(role);
 
   String get initials {
     final n = fullName?.trim();
@@ -46,6 +66,7 @@ class AppUser extends Equatable {
       email: email ?? this.email,
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt,
+      role: role,
     );
   }
 
@@ -57,6 +78,7 @@ class AppUser extends Equatable {
         'email': email,
         'photoUrl': photoUrl,
         'createdAt': createdAt?.toIso8601String(),
+        'role': role,
       };
 
   factory AppUser.fromMap(Map<String, dynamic> map) => AppUser(
@@ -69,8 +91,9 @@ class AppUser extends Equatable {
         createdAt: map['createdAt'] != null
             ? DateTime.tryParse(map['createdAt'].toString())
             : null,
+        role: map['role'] as String? ?? 'citizen',
       );
 
   @override
-  List<Object?> get props => [uid, phoneNumber, fullName, nationalNumber];
+  List<Object?> get props => [uid, phoneNumber, fullName, nationalNumber, role];
 }
