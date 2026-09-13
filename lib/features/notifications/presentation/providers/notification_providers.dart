@@ -87,9 +87,8 @@ class NotificationsController extends Notifier<List<AppNotification>> {
 
   Future<void> markAllRead() async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
-    final previous = state;
-    state = [for (final n in state) n..read = true];
-    state = [...state];
+    final previous = [for (final notification in state) notification.copyWith()];
+    state = [for (final notification in state) notification.copyWith(read: true)];
     if (!AppConfig.supabaseDataEnabled || userId == null) return;
     try {
       await SupabaseConfig.client
@@ -104,9 +103,11 @@ class NotificationsController extends Notifier<List<AppNotification>> {
 
   Future<void> markRead(String id) async {
     final userId = SupabaseConfig.client.auth.currentUser?.id;
-    final previous = state;
-    state = [for (final n in state) if (n.id == id) (n..read = true) else n];
-    state = [...state];
+    final previous = [for (final notification in state) notification.copyWith()];
+    state = [
+      for (final notification in state)
+        notification.id == id ? notification.copyWith(read: true) : notification,
+    ];
     if (!AppConfig.supabaseDataEnabled || userId == null) return;
     try {
       await SupabaseConfig.client
