@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/l10n_lookup.dart';
 import '../../../../core/utils/location_service.dart';
@@ -36,31 +38,132 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
 
   @override void dispose() { _titleController.dispose(); _descController.dispose(); _additionalNotesController.dispose(); super.dispose(); }
   List<String> _getStepTitles(AppLocalizations l) => [l.stepCategory,l.stepLocation,l.stepDescription,l.stepPhotos,l.stepAdditionalInfo,l.stepIdentity,l.stepReview];
-  bool _validateCurrentStep(AppLocalizations l) { if (_currentStep == 0) { if (_category == null) { _snack(l.reportCategory); return false; } } else if (_currentStep < _formKeys.length && _formKeys[_currentStep].currentState != null) return _formKeys[_currentStep].currentState!.validate(); return true; }
+
+  bool _validateCurrentStep(AppLocalizations l) {
+    if (_currentStep == 0) {
+      if (_category == null) { _snack(l.reportCategory); return false; }
+    } else if (_currentStep == 1 && _location == null) {
+      _snack('حدد موقع البلاغ من GPS أو اختره من الخريطة قبل المتابعة.');
+      return false;
+    } else if (_currentStep < _formKeys.length && _formKeys[_currentStep].currentState != null) {
+      return _formKeys[_currentStep].currentState!.validate();
+    }
+    return true;
+  }
+
   void _nextStep(int totalSteps, AppLocalizations l) { if (!_validateCurrentStep(l)) return; FocusScope.of(context).unfocus(); if (_currentStep < totalSteps - 1) setState(() => _currentStep++); else _submit(); }
   void _previousStep() { FocusScope.of(context).unfocus(); if (_currentStep > 0) setState(() => _currentStep--); }
 
   Future<void> _pickPhoto(ImageSource source) async { try { final file = await ImagePicker().pickImage(source: source, imageQuality: 70, maxWidth: 1600); if (file != null && mounted) setState(() => _photos.add(file.path)); } catch (_) { if (mounted) _snack(AppLocalizations.of(context).errorGeneric); } }
   void _showPhotoSheet() { final l = AppLocalizations.of(context); showModalBottomSheet(context: context, builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [const SizedBox(height: 12), ListTile(leading: const Icon(Icons.camera_alt_outlined,color: AppColors.primary),title: Text(l.addPhoto),onTap: () { Navigator.pop(context); _pickPhoto(ImageSource.camera); }),ListTile(leading: const Icon(Icons.photo_library_outlined,color: AppColors.info),title: Text(l.reportPhotos),onTap: () { Navigator.pop(context); _pickPhoto(ImageSource.gallery); }),const SizedBox(height: 8)]))); }
-  Future<void> _captureLocation() async { setState(() => _locating = true); try { final loc = await ref.read(locationServiceProvider).getCurrent(); if (mounted) setState(() => _location = loc); } catch (_) { if (mounted) { setState(() => _location = CapturedLocation(latitude: 12.7855, longitude: 45.0187, address: 'عدن - $_selectedDistrict')); _snack(AppLocalizations.of(context).locationCaptured); } } finally { if (mounted) setState(() => _locating = false); } }
+
+  Future<void> _captureLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final loc = await ref.read(locationServiceProvider).getCurrent();
+      if (mounted) setState(() => _location = loc);
+    } on LocationServiceException catch (e) {
+      if (mounted) _snack(e.message);
+    } catch (_) {
+      if (mounted) _snack(AppLocalizations.of(context).errorGeneric);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _pickLocationFromMap() async {
+    final initial = _location == null
+        ? const LatLng(AppConstants.adenLat, AppConstants.adenLng)
+        : LatLng(_location!.latitude, _location!.longitude);
+    final picked = await showModalBottomSheet<CapturedLocation>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ReportLocationPicker(
+        initial: initial,
+        locationService: ref.read(locationServiceProvider),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _location = picked);
+  }
+
   void _snack(String msg) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg))); }
-  Future<void> _submit() async { final l = AppLocalizations.of(context); FocusScope.of(context).unfocus(); final desc = '${_descController.text.trim()}\n[المديرية: $_selectedDistrict]\n[الخطورة: $_severityLevel]\n[الهوية: ${_isAnonymous ? "مجهول الهوية" : "باسم المستخدم"}]${_additionalNotesController.text.isNotEmpty ? "\n[ملاحظات: ${_additionalNotesController.text.trim()}]" : ""}'; final report = await ref.read(submitReportControllerProvider.notifier).submit(title: _titleController.text.trim(),description: desc,category: _category!,photos: _photos,latitude: _location?.latitude,longitude: _location?.longitude,address: _location?.address ?? 'عدن - $_selectedDistrict'); if (!mounted) return; if (report != null) _showSuccess(report.id); else _snack(l.errorGeneric); }
+
+  Future<void> _submit() async {
+    final l = AppLocalizations.of(context);
+    if (_location == null) { _snack('يجب تحديد موقع البلاغ قبل الإرسال.'); return; }
+    FocusScope.of(context).unfocus();
+    final desc = '${_descController.text.trim()}\n[المديرية: $_selectedDistrict]\n[الخطورة: $_severityLevel]\n[الهوية: ${_isAnonymous ? "مجهول الهوية" : "باسم المستخدم"}]${_additionalNotesController.text.isNotEmpty ? "\n[ملاحظات: ${_additionalNotesController.text.trim()}]" : ""}';
+    final report = await ref.read(submitReportControllerProvider.notifier).submit(title: _titleController.text.trim(),description: desc,category: _category!,photos: _photos,latitude: _location!.latitude,longitude: _location!.longitude,address: _location!.address ?? 'إحداثيات موقع البلاغ');
+    if (!mounted) return;
+    if (report != null) _showSuccess(report.id); else _snack(l.errorGeneric);
+  }
+
   void _showSuccess(String reportId) { final l = AppLocalizations.of(context); showModalBottomSheet(context: context,isDismissible: false,isScrollControlled: true,builder: (_) => Padding(padding: const EdgeInsets.fromLTRB(20,16,20,28),child: Column(mainAxisSize: MainAxisSize.min,children: [const SizedBox(height: 24),Container(width:84,height:84,decoration: const BoxDecoration(color: AppColors.primarySoft,shape: BoxShape.circle),child: const Icon(Icons.check_circle_rounded,color: AppColors.primary,size:52)),const SizedBox(height:20),Text(l.reportSubmitted,style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),const SizedBox(height:10),Text('رقم البلاغ المرجعي هو $reportId. تم تحويل البلاغ بنجاح للجهات المختصة بمديرية $_selectedDistrict.',textAlign: TextAlign.center,style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),const SizedBox(height:24),SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:(){Navigator.pop(context);context.pop();},icon:const Icon(Icons.check_rounded),label:Text(l.ok)))]))); }
 
   @override Widget build(BuildContext context) { final l=AppLocalizations.of(context); final submitting=ref.watch(submitReportControllerProvider).isLoading; final titles=_getStepTitles(l); final color=_category?.color ?? AppColors.primary; return Scaffold(appBar:AppBar(title:Text(l.newReport),elevation:0),body:Column(children:[AppStepperHeader(currentStep:_currentStep,totalSteps:titles.length,stepTitles:titles,primaryColor:color),Expanded(child:SingleChildScrollView(padding:const EdgeInsets.all(16),child:IndexedStack(index:_currentStep,children:[for(int i=0;i<titles.length;i++) Form(key:_formKeys[i],child:_buildStepContent(i,l))]))),_buildBottomNavigationBar(titles.length,l,submitting,color)])); }
   Widget _buildStepContent(int i, AppLocalizations l) { switch(i){case 0:return _buildCategoryStep(l);case 1:return _buildLocationStep(l);case 2:return _buildDescriptionStep(l);case 3:return _buildPhotosStep(l);case 4:return _buildAdditionalInfoStep(l);case 5:return _buildIdentityStep(l);case 6:return _buildReviewStep(l);default:return const SizedBox.shrink();} }
   Widget _buildCategoryStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.reportCategory),const SizedBox(height:12),Wrap(spacing:10,runSpacing:10,children:[for(final c in ReportCategory.values)_CategoryChip(category:c,label:tr(l,c.labelKey),selected:_category==c,onTap:()=>setState(()=>_category=c))])]);
-  Widget _buildLocationStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.districtLabel),const SizedBox(height:8),DropdownButtonFormField<String>(value:_selectedDistrict,items:_adenDistricts.map((d)=>DropdownMenuItem(value:d,child:Text(d))).toList(),onChanged:(v){if(v!=null)setState(()=>_selectedDistrict=v);},decoration:InputDecoration(hintText:l.selectDistrict)),const SizedBox(height:20),_Label(l.reportLocation),const SizedBox(height:8),_LocationCard(location:_location,loading:_locating,onCapture:_captureLocation,capturedLabel:l.locationCaptured,actionLabel:l.useCurrentLocation)]);
+  Widget _buildLocationStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.districtLabel),const SizedBox(height:8),DropdownButtonFormField<String>(value:_selectedDistrict,items:_adenDistricts.map((d)=>DropdownMenuItem(value:d,child:Text(d))).toList(),onChanged:(v){if(v!=null)setState(()=>_selectedDistrict=v);},decoration:InputDecoration(hintText:l.selectDistrict)),const SizedBox(height:20),_Label(l.reportLocation),const SizedBox(height:8),_LocationCard(location:_location,loading:_locating,onCapture:_captureLocation,onPickMap:_pickLocationFromMap,capturedLabel:l.locationCaptured,actionLabel:l.useCurrentLocation)]);
   Widget _buildDescriptionStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.reportTitleLabel),const SizedBox(height:8),TextFormField(controller:_titleController,decoration:InputDecoration(hintText:l.reportTitleHint),validator:(v)=>(v==null||v.trim().isEmpty)?l.fieldRequired:null),const SizedBox(height:16),_Label(l.reportDescLabel),const SizedBox(height:8),TextFormField(controller:_descController,maxLines:5,decoration:InputDecoration(hintText:l.reportDescHint),validator:(v)=>(v==null||v.trim().length<10)?l.fieldRequired:null)]);
   Widget _buildPhotosStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.reportPhotos),const SizedBox(height:6),Text('يمكنك التقاط أو رفع صور لتأكيد حالة المشكلة ومساعدة الفرق الميدانية.',style:TextStyle(color:Theme.of(context).colorScheme.onSurfaceVariant,fontSize:13)),const SizedBox(height:16),_PhotoStrip(photos:_photos,onAdd:_showPhotoSheet,onRemove:(i)=>setState(()=>_photos.removeAt(i)))]);
-  Widget _buildAdditionalInfoStep(AppLocalizations l){String q='معلومات وملاحظات إضافية حول البلاغ';if(_category==ReportCategory.powerOutage)q='تقدير مدة انقطاع التيار الكهربائي أو رقم المحول إن وجد';else if(_category==ReportCategory.waterLeak)q='حجم تسرب المياه ومدى تأثيره على الطريق أو المنازل المجاوة';else if(_category==ReportCategory.roadDamage)q='أثر التلف على حركة السير أو وقوع حوادث مرورية';return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.severityLevel),const SizedBox(height:8),DropdownButtonFormField<String>(value:_severityLevel,items:[DropdownMenuItem(value:l.severityLow,child:Text(l.severityLow)),DropdownMenuItem(value:l.severityMedium,child:Text(l.severityMedium)),DropdownMenuItem(value:l.severityHigh,child:Text(l.severityHigh))],onChanged:(v){if(v!=null)setState(()=>_severityLevel=v);}),const SizedBox(height:20),_Label(q),const SizedBox(height:8),TextFormField(controller:_additionalNotesController,maxLines:3,decoration:InputDecoration(hintText:l.additionalNotesHint))]);}
+  Widget _buildAdditionalInfoStep(AppLocalizations l){String q='معلومات وملاحظات إضافية حول البلاغ';if(_category==ReportCategory.powerOutage)q='تقدير مدة انقطاع التيار الكهربائي أو رقم المحول إن وجد';else if(_category==ReportCategory.waterLeak)q='حجم تسرب المياه ومدى تأثيره على الطريق أو المنازل المجاورة';else if(_category==ReportCategory.roadDamage)q='أثر التلف على حركة السير أو وقوع حوادث مرورية';return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.severityLevel),const SizedBox(height:8),DropdownButtonFormField<String>(value:_severityLevel,items:[DropdownMenuItem(value:l.severityLow,child:Text(l.severityLow)),DropdownMenuItem(value:l.severityMedium,child:Text(l.severityMedium)),DropdownMenuItem(value:l.severityHigh,child:Text(l.severityHigh))],onChanged:(v){if(v!=null)setState(()=>_severityLevel=v);}),const SizedBox(height:20),_Label(q),const SizedBox(height:8),TextFormField(controller:_additionalNotesController,maxLines:3,decoration:InputDecoration(hintText:l.additionalNotesHint))]);}
   Widget _buildIdentityStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[_Label(l.reportIdentityType),const SizedBox(height:6),Text(l.reportIdentityNotice,style:TextStyle(color:Theme.of(context).colorScheme.onSurfaceVariant,fontSize:13)),const SizedBox(height:20),RadioListTile<bool>(value:false,groupValue:_isAnonymous,activeColor:AppColors.primary,title:Text(l.reportIdentityNamed,style:const TextStyle(fontWeight:FontWeight.w700)),subtitle:const Text('سيتم ربط البلاغ برقم هاتفك وملفك في التطبيق'),onChanged:(v){if(v!=null)setState(()=>_isAnonymous=v);}),const Divider(),RadioListTile<bool>(value:true,groupValue:_isAnonymous,activeColor:AppColors.primary,title:Text(l.reportIdentityAnonymous,style:const TextStyle(fontWeight:FontWeight.w700)),subtitle:const Text('لن تظهر أي بيانات شخصية للفرق المعنية بالبلاغ'),onChanged:(v){if(v!=null)setState(()=>_isAnonymous=v);})]);
-  Widget _buildReviewStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مراجعة وتأكيد البلاغ',style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w800)),const SizedBox(height:6),Text('يرجى مراجعة تفاصيل البلاغ قبل الإرسال لضمان وصول التنبيه بدقة للجهة المعنية.',style:Theme.of(context).textTheme.bodyMedium?.copyWith(color:Theme.of(context).colorScheme.onSurfaceVariant)),const SizedBox(height:20),AppCard(borderColor:(_category?.color??AppColors.primary).withValues(alpha:.3),padding:const EdgeInsets.all(16),child:Column(children:[_buildReviewRow(l.reportCategory,_category!=null?tr(l,_category!.labelKey):'غير محدد'),const Divider(height:20),_buildReviewRow(l.districtLabel,_selectedDistrict),const Divider(height:20),_buildReviewRow(l.reportTitleLabel,_titleController.text.isNotEmpty?_titleController.text:'لم يُدخل'),const Divider(height:20),_buildReviewRow(l.severityLevel,_severityLevel),const Divider(height:20),_buildReviewRow(l.reportIdentityType,_isAnonymous?l.reportIdentityAnonymous:l.reportIdentityNamed),const Divider(height:20),_buildReviewRow(l.reportPhotos,_photos.isNotEmpty?'تم إرفاق ${_photos.length} صور':'بدون صور')]))]);
+  Widget _buildReviewStep(AppLocalizations l)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مراجعة وتأكيد البلاغ',style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.w800)),const SizedBox(height:6),Text('يرجى مراجعة تفاصيل البلاغ قبل الإرسال لضمان وصول التنبيه بدقة للجهة المعنية.',style:Theme.of(context).textTheme.bodyMedium?.copyWith(color:Theme.of(context).colorScheme.onSurfaceVariant)),const SizedBox(height:20),AppCard(borderColor:(_category?.color??AppColors.primary).withValues(alpha:.3),padding:const EdgeInsets.all(16),child:Column(children:[_buildReviewRow(l.reportCategory,_category!=null?tr(l,_category!.labelKey):'غير محدد'),const Divider(height:20),_buildReviewRow(l.districtLabel,_selectedDistrict),const Divider(height:20),_buildReviewRow(l.reportTitleLabel,_titleController.text.isNotEmpty?_titleController.text:'لم يُدخل'),const Divider(height:20),_buildReviewRow(l.severityLevel,_severityLevel),const Divider(height:20),_buildReviewRow(l.reportIdentityType,_isAnonymous?l.reportIdentityAnonymous:l.reportIdentityNamed),const Divider(height:20),_buildReviewRow(l.reportPhotos,_photos.isNotEmpty?'تم إرفاق ${_photos.length} صور':'بدون صور'),const Divider(height:20),_buildReviewRow(l.reportLocation,_location==null?'غير محدد':(_location!.address??'تم تحديد الإحداثيات'))]))]);
   Widget _buildReviewRow(String label,String value)=>Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:TextStyle(fontWeight:FontWeight.w600,color:Theme.of(context).colorScheme.onSurfaceVariant,fontSize:13)),const SizedBox(width:12),Expanded(child:Text(value,textAlign:TextAlign.start,style:const TextStyle(fontWeight:FontWeight.w800,fontSize:13.5)))]);
   Widget _buildBottomNavigationBar(int total,AppLocalizations l,bool submitting,Color color){final first=_currentStep==0;final last=_currentStep==total-1;return Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:Theme.of(context).cardColor,border:Border(top:BorderSide(color:Theme.of(context).colorScheme.outline.withValues(alpha:.3)))),child:Row(children:[if(!first)Expanded(child:OutlinedButton.icon(onPressed:submitting?null:_previousStep,icon:const Icon(Icons.arrow_back_rounded),label:Text(l.stepPrevious))),if(!first)const SizedBox(width:12),Expanded(flex:first?2:1,child:FilledButton.icon(style:FilledButton.styleFrom(backgroundColor:color),onPressed:submitting?null:()=>_nextStep(total,l),icon:submitting?const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2.2,valueColor:AlwaysStoppedAnimation(Colors.white))):Icon(last?Icons.send_rounded:Icons.arrow_forward_rounded),label:Text(last?l.reviewAndSubmit:l.stepNext))) ]));}
+}
+
+class _ReportLocationPicker extends StatefulWidget {
+  const _ReportLocationPicker({required this.initial, required this.locationService});
+  final LatLng initial;
+  final LocationService locationService;
+  @override State<_ReportLocationPicker> createState() => _ReportLocationPickerState();
+}
+
+class _ReportLocationPickerState extends State<_ReportLocationPicker> {
+  LatLng? _selected;
+  bool _resolving = false;
+
+  Future<void> _select(LatLng point) async {
+    setState(() { _selected = point; _resolving = true; });
+    try {
+      final location = await widget.locationService.fromCoordinates(point.latitude, point.longitude);
+      if (mounted) setState(() => _resolving = false);
+      if (mounted) Navigator.of(context).pop(location);
+    } catch (_) {
+      if (mounted) setState(() => _resolving = false);
+    }
+  }
+
+  @override Widget build(BuildContext context) {
+    final marker = _selected;
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * .82,
+      child: Column(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(16,12,16,8),child: Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('تحديد موقع البلاغ',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w800)),const SizedBox(height:3),Text('اضغط على الخريطة لتحديد المكان بدقة.',style:Theme.of(context).textTheme.bodySmall?.copyWith(color:Theme.of(context).colorScheme.onSurfaceVariant))])),IconButton(onPressed:()=>Navigator.pop(context),icon:const Icon(Icons.close_rounded))])),
+        Expanded(child: Stack(children:[
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: widget.initial, zoom: 15),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            onTap: _select,
+            markers: marker == null ? const <Marker>{} : {Marker(markerId: const MarkerId('selected-report-location'),position: marker,icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen))},
+          ),
+          if (_resolving) Positioned(bottom:20,left:20,right:20,child:Material(borderRadius:BorderRadius.circular(14),elevation:4,child:Padding(padding:const EdgeInsets.all(14),child:Row(children:[const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2)),const SizedBox(width:12),Expanded(child:Text('جارٍ تحديد العنوان…',style:Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight:FontWeight.w700)))]))))
+        ])),
+      ]),
+    );
+  }
 }
 
 class _Label extends StatelessWidget { const _Label(this.text); final String text; @override Widget build(BuildContext context)=>Text(text,style:Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight:FontWeight.w700)); }
 class _CategoryChip extends StatelessWidget { const _CategoryChip({required this.category,required this.label,required this.selected,required this.onTap}); final ReportCategory category;final String label;final bool selected;final VoidCallback onTap; @override Widget build(BuildContext context)=>GestureDetector(onTap:onTap,child:AnimatedContainer(duration:const Duration(milliseconds:180),padding:const EdgeInsets.symmetric(horizontal:14,vertical:10),decoration:BoxDecoration(color:selected?category.color.withValues(alpha:.14):Theme.of(context).cardColor,borderRadius:BorderRadius.circular(30),border:Border.all(color:selected?category.color:Theme.of(context).colorScheme.outline,width:selected?1.6:1)),child:Row(mainAxisSize:MainAxisSize.min,children:[Icon(category.icon,size:18,color:selected?category.color:Theme.of(context).colorScheme.onSurfaceVariant),const SizedBox(width:6),Text(label,style:TextStyle(fontWeight:FontWeight.w600,color:selected?category.color:Theme.of(context).colorScheme.onSurface))]))); }
 class _PhotoStrip extends StatelessWidget { const _PhotoStrip({required this.photos,required this.onAdd,required this.onRemove});final List<String> photos;final VoidCallback onAdd;final ValueChanged<int> onRemove;@override Widget build(BuildContext context){final l=AppLocalizations.of(context);return SizedBox(height:96,child:ListView(scrollDirection:Axis.horizontal,children:[GestureDetector(onTap:onAdd,child:Container(width:96,height:96,decoration:BoxDecoration(color:AppColors.primarySoft,borderRadius:BorderRadius.circular(16)),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[const Icon(Icons.add_a_photo_outlined,color:AppColors.primary),const SizedBox(height:4),Text(l.addPhoto,style:const TextStyle(color:AppColors.primary,fontSize:11))]))),for(int i=0;i<photos.length;i++)Padding(padding:const EdgeInsets.only(left:10),child:Stack(children:[ClipRRect(borderRadius:BorderRadius.circular(16),child:kIsWeb?Image.network(photos[i],width:96,height:96,fit:BoxFit.cover):Image.file(File(photos[i]),width:96,height:96,fit:BoxFit.cover)),Positioned(top:4,right:4,child:GestureDetector(onTap:()=>onRemove(i),child:Container(padding:const EdgeInsets.all(3),decoration:const BoxDecoration(color:Colors.black54,shape:BoxShape.circle),child:const Icon(Icons.close,size:14,color:Colors.white))))]))]));}}
-class _LocationCard extends StatelessWidget { const _LocationCard({required this.location,required this.loading,required this.onCapture,required this.capturedLabel,required this.actionLabel});final CapturedLocation? location;final bool loading;final VoidCallback onCapture;final String capturedLabel;final String actionLabel;@override Widget build(BuildContext context){final captured=location!=null;return Material(color:Theme.of(context).cardColor,borderRadius:BorderRadius.circular(16),child:InkWell(onTap:loading?null:onCapture,borderRadius:BorderRadius.circular(16),child:Padding(padding:const EdgeInsets.all(14),child:Row(children:[Container(width:44,height:44,decoration:BoxDecoration(color:AppColors.primarySoft,borderRadius:BorderRadius.circular(12)),child:loading?const Padding(padding:EdgeInsets.all(12),child:CircularProgressIndicator(strokeWidth:2.2,color:AppColors.primary)):Icon(captured?Icons.check_circle:Icons.my_location,color:AppColors.primary)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(captured?capturedLabel:actionLabel,style:Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight:FontWeight.w700)),if(captured)Text(location!.address??'${location!.latitude.toStringAsFixed(4)}, ${location!.longitude.toStringAsFixed(4)}',style:Theme.of(context).textTheme.bodySmall)])),Icon(Icons.chevron_right_rounded,color:Theme.of(context).colorScheme.onSurfaceVariant)]))));}}
+class _LocationCard extends StatelessWidget { const _LocationCard({required this.location,required this.loading,required this.onCapture,required this.onPickMap,required this.capturedLabel,required this.actionLabel});final CapturedLocation? location;final bool loading;final VoidCallback onCapture;final VoidCallback onPickMap;final String capturedLabel;final String actionLabel;@override Widget build(BuildContext context){final captured=location!=null;return Column(children:[Material(color:Theme.of(context).cardColor,borderRadius:BorderRadius.circular(16),child:Padding(padding:const EdgeInsets.all(14),child:Row(children:[Container(width:44,height:44,decoration:BoxDecoration(color:AppColors.primarySoft,borderRadius:BorderRadius.circular(12)),child:loading?const Padding(padding:EdgeInsets.all(12),child:CircularProgressIndicator(strokeWidth:2.2,color:AppColors.primary)):Icon(captured?Icons.check_circle:Icons.my_location,color:AppColors.primary)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(captured?capturedLabel:actionLabel,style:Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight:FontWeight.w700)),if(captured)Text(location!.address??'${location!.latitude.toStringAsFixed(5)}, ${location!.longitude.toStringAsFixed(5)}',style:Theme.of(context).textTheme.bodySmall)])),if(loading)const SizedBox(width:8) else Icon(Icons.check_circle_outline_rounded,color:captured?AppColors.primary:Theme.of(context).colorScheme.onSurfaceVariant)]))),
+        const SizedBox(height:10),
+        Row(children:[Expanded(child:OutlinedButton.icon(onPressed:loading?null:onCapture,icon:const Icon(Icons.my_location_rounded),label:Text('استخدام موقعي الحالي'))),const SizedBox(width:10),Expanded(child:FilledButton.icon(onPressed:loading?null:onPickMap,icon:const Icon(Icons.map_outlined),label:Text('اختيار من الخريطة')))]),
+      ]);}}
