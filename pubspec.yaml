@@ -56,7 +56,7 @@ dependencies:
   # Utils
   intl: ^0.20.2
   equatable: ^2.0.5
-  dartz: ^0.10.0
+  dartz: ^0.10.1
   uuid: ^4.4.0
   pin_code_fields: ^8.0.1
   google_fonts: ^6.2.1
