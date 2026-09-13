@@ -1,1 +1,0 @@
- /workspaces/-/aden_digital/lib/l10n/app_localizations_ar.dart /workspaces/-/aden_digital/lib/l10n/app_localizations_en.dart /workspaces/-/aden_digital/lib/l10n/app_localizations.dart:  /workspaces/-/aden_digital/l10n.yaml /workspaces/-/aden_digital/lib/l10n/app_ar.arb /workspaces/-/aden_digital/lib/l10n/app_en.arb
