@@ -8,11 +8,10 @@ import '../../data/repositories/supabase_auth_repository.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-/// Uses Supabase Auth whenever the production backend is initialized.
-/// Firebase/mock remains available as a safe fallback for environments where
-/// Supabase cannot initialize.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  if (AppConfig.supabaseReady) return SupabaseAuthRepository();
+  if (AppConfig.supabaseAuthEnabled && AppConfig.supabaseReady) {
+    return SupabaseAuthRepository();
+  }
   if (AppConfig.demoMode) return MockAuthRepository();
   return FirebaseAuthRepository();
 });
