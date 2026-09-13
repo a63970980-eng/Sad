@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/settings_controller.dart';
@@ -267,11 +268,12 @@ class _MiniMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dependency-free preview retained so location remains useful without a Maps API key.
-    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final point = LatLng(report.latitude!, report.longitude!);
+    final markerId = MarkerId('report-${report.id}');
+
     return Container(
-      height: 154,
+      height: 218,
       decoration: BoxDecoration(
         color: AppColors.primarySurface,
         borderRadius: BorderRadius.circular(18),
@@ -279,75 +281,58 @@ class _MiniMap extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
-        alignment: Alignment.center,
         children: [
-          Positioned.fill(child: CustomPaint(painter: _MapGridPainter(scheme.outline))),
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.88),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.18),
-                  blurRadius: 18,
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: point, zoom: 16.5),
+            markers: {
+              Marker(
+                markerId: markerId,
+                position: point,
+                infoWindow: InfoWindow(
+                  title: AppLocalizations.of(context).reportLocation,
+                  snippet:
+                      '${report.latitude!.toStringAsFixed(5)}, ${report.longitude!.toStringAsFixed(5)}',
                 ),
-              ],
-            ),
-            child: const Icon(Icons.location_on, color: AppColors.danger, size: 38),
-          ),
-          Positioned(
-            left: 12,
-            bottom: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: scheme.outline),
               ),
-              child: Text(
-                '${report.latitude!.toStringAsFixed(4)}, ${report.longitude!.toStringAsFixed(4)}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
+            },
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            myLocationButtonEnabled: false,
+            compassEnabled: false,
+            rotateGesturesEnabled: false,
+            tiltGesturesEnabled: false,
+            mapType: MapType.normal,
           ),
           Positioned(
             top: 10,
             right: 10,
             child: StatusPill(
-              label: l.locationCaptured,
+              label: AppLocalizations.of(context).locationCaptured,
               color: AppColors.primary,
               icon: Icons.check_circle,
               dense: true,
+            ),
+          ),
+          Positioned(
+            left: 10,
+            bottom: 10,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surface.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: scheme.outline),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                child: Text(
+                  '${report.latitude!.toStringAsFixed(4)}, ${report.longitude!.toStringAsFixed(4)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
-
-class _MapGridPainter extends CustomPainter {
-  const _MapGridPainter(this.lineColor);
-  final Color lineColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = lineColor.withValues(alpha: 0.32)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    for (var x = -size.height; x < size.width + size.height; x += 46) {
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
-    }
-    for (var x = 10.0; x < size.width; x += 74) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapGridPainter oldDelegate) =>
-      oldDelegate.lineColor != lineColor;
 }
