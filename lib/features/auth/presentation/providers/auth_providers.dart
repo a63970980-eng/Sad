@@ -5,14 +5,20 @@ import '../../../../core/storage/secure_storage_service.dart';
 import '../../data/repositories/firebase_auth_repository.dart';
 import '../../data/repositories/mock_auth_repository.dart';
 import '../../data/repositories/supabase_auth_repository.dart';
+import '../../data/repositories/unavailable_auth_repository.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  if (AppConfig.supabaseAuthEnabled && AppConfig.supabaseReady) {
-    return SupabaseAuthRepository();
-  }
   if (AppConfig.demoMode) return MockAuthRepository();
+
+  if (AppConfig.supabaseAuthEnabled) {
+    if (AppConfig.supabaseReady) return SupabaseAuthRepository();
+    return const UnavailableAuthRepository();
+  }
+
+  // Firebase remains a compatibility path only when Supabase auth is
+  // explicitly disabled at build time.
   return FirebaseAuthRepository();
 });
 
