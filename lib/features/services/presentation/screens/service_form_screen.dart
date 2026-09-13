@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_widgets.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../data/repositories/supabase_service_repository.dart';
 import '../../data/services_catalog.dart';
+import '../../domain/entities/gov_service.dart';
 
 class ServiceFormScreen extends StatefulWidget {
   const ServiceFormScreen({
@@ -78,25 +79,20 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   ServiceAction? get _action =>
       _service?.actions.where((item) => item.id == widget.actionId).firstOrNull;
 
-  String _title(AppLocalizations l) => _action == null
-      ? l.servicesTitle
-      : _action!.titleKey == 'actApplyId'
-          ? l.actApplyId
-          : _action!.titleKey == 'actRenewId'
-              ? l.actRenewId
-              : _action!.titleKey == 'actNewPassport'
-                  ? l.actNewPassport
-                  : _action!.titleKey == 'actRenewPassport'
-                      ? l.actRenewPassport
-                      : _action!.titleKey == 'actNewLicense'
-                          ? l.actNewLicense
-                          : _action!.titleKey == 'actRenewLicense'
-                              ? l.actRenewLicense
-                              : _action!.titleKey == 'actVehicleReg'
-                                  ? l.actVehicleReg
-                                  : _action!.titleKey == 'actOwnershipTransfer'
-                                      ? l.actOwnershipTransfer
-                                      : l.servicesTitle;
+  String _title(AppLocalizations l) {
+    final key = _action?.titleKey;
+    switch (key) {
+      case 'actApplyId': return l.actApplyId;
+      case 'actRenewId': return l.actRenewId;
+      case 'actNewPassport': return l.actNewPassport;
+      case 'actRenewPassport': return l.actRenewPassport;
+      case 'actNewLicense': return l.actNewLicense;
+      case 'actRenewLicense': return l.actRenewLicense;
+      case 'actVehicleReg': return l.actVehicleReg;
+      case 'actOwnershipTransfer': return l.actOwnershipTransfer;
+      default: return l.servicesTitle;
+    }
+  }
 
   bool _validateStep() {
     if (!_formKeys[_step].currentState!.validate()) return false;
@@ -193,19 +189,12 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               child: Icon(Icons.check_rounded, color: AppColors.primary, size: 52),
             ),
             const SizedBox(height: 20),
-            Text(
-              l.requestSubmitted,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
+            Text(l.requestSubmitted, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Text(
               l.requestSubmittedDesc(reference),
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 22),
             SizedBox(
@@ -213,9 +202,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               child: FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(sheetContext);
-                  context.pushReplacement(
-                    '/services/${widget.serviceId}/track/${widget.actionId}?ref=$reference',
-                  );
+                  context.pushReplacement('/services/${widget.serviceId}/track/${widget.actionId}?ref=$reference');
                 },
                 icon: const Icon(Icons.track_changes_rounded),
                 label: Text(l.track),
@@ -260,7 +247,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '${service.titleKey == 'svcNationalId' ? l.svcNationalId : title} • $title',
+                      '${_serviceTitle(l, service)} • $title',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: color, fontWeight: FontWeight.w800),
@@ -269,32 +256,17 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                 ],
               ),
             ),
-          AppStepperHeader(
-            currentStep: _step,
-            totalSteps: 4,
-            stepTitles: _stepTitles(l),
-            primaryColor: color,
-          ),
+          AppStepperHeader(currentStep: _step, totalSteps: 4, stepTitles: _stepTitles(l), primaryColor: color),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              child: Form(
-                key: _formKeys[_step],
-                child: _buildStep(_step, l, color),
-              ),
+              child: Form(key: _formKeys[_step], child: _buildStep(_step, l, color)),
             ),
           ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.danger,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
+              child: Text(_error!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.danger, fontWeight: FontWeight.w700)),
             ),
           SafeArea(
             top: false,
@@ -302,27 +274,14 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Row(
                 children: [
-                  if (_step > 0)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _submitting ? null : _back,
-                        child: const Text('السابق'),
-                      ),
-                    ),
+                  if (_step > 0) Expanded(child: OutlinedButton(onPressed: _submitting ? null : _back, child: const Text('السابق'))),
                   if (_step > 0) const SizedBox(width: 10),
                   Expanded(
                     flex: 2,
                     child: FilledButton(
                       onPressed: _submitting ? null : _next,
                       child: _submitting
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(Colors.white),
-                              ),
-                            )
+                          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
                           : Text(_step == 3 ? 'إرسال الطلب' : 'متابعة'),
                     ),
                   ),
@@ -335,70 +294,53 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
     );
   }
 
+  String _serviceTitle(AppLocalizations l, GovService service) {
+    switch (service.titleKey) {
+      case 'svcNationalId': return l.svcNationalId;
+      case 'svcPassport': return l.svcPassport;
+      case 'svcDrivingLicense': return l.svcDrivingLicense;
+      case 'svcVehicle': return l.svcVehicle;
+      case 'svcMunicipality': return l.svcMunicipality;
+      case 'svcUtilities': return l.svcUtilities;
+      default: return l.servicesTitle;
+    }
+  }
+
   Widget _buildStep(int step, AppLocalizations l, Color color) {
     switch (step) {
-      case 0:
-        return _buildApplicantStep(l);
-      case 1:
-        return _buildDetailsStep(l, color);
-      case 2:
-        return _buildDocumentsStep(l, color);
-      default:
-        return _buildReviewStep(l, color);
+      case 0: return _buildApplicantStep(l);
+      case 1: return _buildDetailsStep(l, color);
+      case 2: return _buildDocumentsStep(color);
+      default: return _buildReviewStep(l, color);
     }
   }
 
   Widget _buildApplicantStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(title: 'بيانات مقدم الطلب', subtitle: 'تُستخدم لإتمام الطلب والتواصل الرسمي.'),
+          const _SectionTitle(title: 'بيانات مقدم الطلب', subtitle: 'تُستخدم لإتمام الطلب والتواصل الرسمي.'),
           const SizedBox(height: 16),
           _label(l.fullName),
-          TextFormField(
-            controller: _name,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(hintText: l.fullName, prefixIcon: const Icon(Icons.person_outline_rounded)),
-            validator: (v) => v == null || v.trim().length < 3 ? l.fieldRequired : null,
-          ),
+          TextFormField(controller: _name, textInputAction: TextInputAction.next, decoration: InputDecoration(hintText: l.fullName, prefixIcon: const Icon(Icons.person_outline_rounded)), validator: (v) => v == null || v.trim().length < 3 ? l.fieldRequired : null),
           const SizedBox(height: 14),
           _label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalNumber,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(hintText: l.nationalNumber, prefixIcon: const Icon(Icons.badge_outlined)),
-            validator: (v) => v == null || v.trim().length < 6 ? l.fieldRequired : null,
-          ),
+          TextFormField(controller: _nationalNumber, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: InputDecoration(hintText: l.nationalNumber, prefixIcon: const Icon(Icons.badge_outlined)), validator: (v) => v == null || v.trim().length < 6 ? l.fieldRequired : null),
           const SizedBox(height: 14),
           _label(l.phoneNumber),
-          TextFormField(
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint, prefixIcon: const Icon(Icons.phone_outlined)),
-            validator: (v) => v == null || v.trim().length < 9 ? l.fieldRequired : null,
-          ),
+          TextFormField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(hintText: l.phoneHint, prefixIcon: const Icon(Icons.phone_outlined)), validator: (v) => v == null || v.trim().length < 9 ? l.fieldRequired : null),
         ],
       );
 
   Widget _buildDetailsStep(AppLocalizations l, Color color) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(title: 'تفاصيل الخدمة', subtitle: 'أدخل المعلومات المرتبطة بالخدمة المطلوبة.'),
+          const _SectionTitle(title: 'تفاصيل الخدمة', subtitle: 'أدخل المعلومات المرتبطة بالخدمة المطلوبة.'),
           const SizedBox(height: 16),
           _label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _district,
-            decoration: InputDecoration(prefixIcon: Icon(Icons.location_on_outlined, color: color)),
-            items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-            onChanged: (value) => setState(() => _district = value ?? _district),
-          ),
+          DropdownButtonFormField<String>(value: _district, decoration: InputDecoration(prefixIcon: Icon(Icons.location_on_outlined, color: color)), items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(), onChanged: (value) => setState(() => _district = value ?? _district)),
           const SizedBox(height: 14),
           _label('العنوان'),
-          TextFormField(
-            controller: _address,
-            maxLines: 2,
-            decoration: const InputDecoration(hintText: 'الحي، الشارع، وأقرب معلم'),
-          ),
+          TextFormField(controller: _address, maxLines: 2, decoration: const InputDecoration(hintText: 'الحي، الشارع، وأقرب معلم')),
           const SizedBox(height: 14),
           if (widget.serviceId == 'passport' || widget.serviceId == 'national_id') ...[
             _label('رقم الوثيقة السابقة (إن وجد)'),
@@ -419,15 +361,11 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
             const SizedBox(height: 14),
           ],
           _label(l.additionalNotes),
-          TextFormField(
-            controller: _details,
-            maxLines: 4,
-            decoration: InputDecoration(hintText: l.additionalNotesHint),
-          ),
+          TextFormField(controller: _details, maxLines: 4, decoration: InputDecoration(hintText: l.additionalNotesHint)),
         ],
       );
 
-  Widget _buildDocumentsStep(AppLocalizations l, Color color) => AppCard(
+  Widget _buildDocumentsStep(Color color) => AppCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -435,10 +373,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
             const SizedBox(height: 12),
             Text('المستندات المطلوبة', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            Text(
-              'ستختلف المستندات النهائية حسب الجهة الحكومية. لا نعرض للمستخدم أن ملفاً رُفع ما لم يتم حفظه فعلياً في النظام.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
+            Text('ستختلف المستندات النهائية حسب الجهة الحكومية. لا نعرض للمستخدم أن ملفاً رُفع ما لم يتم حفظه فعلياً في النظام.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 18),
             CheckboxListTile(
               value: _acknowledgedDocuments,
@@ -454,32 +389,17 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   Widget _buildReviewStep(AppLocalizations l, Color color) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(title: 'مراجعة الطلب', subtitle: 'تحقق من البيانات قبل الإرسال إلى الجهة الحكومية.'),
+          const _SectionTitle(title: 'مراجعة الطلب', subtitle: 'تحقق من البيانات قبل الإرسال إلى الجهة الحكومية.'),
           const SizedBox(height: 14),
-          _ReviewCard(title: 'مقدم الطلب', rows: {
-            'الاسم': _name.text,
-            'الرقم الوطني': _nationalNumber.text,
-            'الهاتف': _phone.text,
-          }, color: color),
+          _ReviewCard(title: 'مقدم الطلب', rows: {'الاسم': _name.text, 'الرقم الوطني': _nationalNumber.text, 'الهاتف': _phone.text}, color: color),
           const SizedBox(height: 12),
-          _ReviewCard(title: 'الخدمة', rows: {
-            'الخدمة': _title(l),
-            'المديرية': _district,
-            'العنوان': _address.text.isEmpty ? 'غير محدد' : _address.text,
-          }, color: color),
+          _ReviewCard(title: 'الخدمة', rows: {'الخدمة': _title(l), 'المديرية': _district, 'العنوان': _address.text.isEmpty ? 'غير محدد' : _address.text}, color: color),
           const SizedBox(height: 12),
-          _ReviewCard(title: 'بيانات إضافية', rows: {
-            'رقم الوثيقة': _documentNumber.text.isEmpty ? '—' : _documentNumber.text,
-            'اللوحة': _plate.text.isEmpty ? '—' : _plate.text,
-            'العداد': _meter.text.isEmpty ? '—' : _meter.text,
-          }, color: color),
+          _ReviewCard(title: 'بيانات إضافية', rows: {'رقم الوثيقة': _documentNumber.text.isEmpty ? '—' : _documentNumber.text, 'اللوحة': _plate.text.isEmpty ? '—' : _plate.text, 'العداد': _meter.text.isEmpty ? '—' : _meter.text}, color: color),
         ],
       );
 
-  Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 7),
-        child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
-      );
+  Widget _label(String text) => Padding(padding: const EdgeInsets.only(bottom: 7), child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)));
 }
 
 class _SectionTitle extends StatelessWidget {
