@@ -104,6 +104,7 @@ class Report extends Equatable {
     required this.createdAt,
     required this.photos,
     required this.timeline,
+    this.referenceNo,
     this.latitude,
     this.longitude,
     this.address,
@@ -111,6 +112,10 @@ class Report extends Equatable {
   });
 
   final String id;
+  /// Stable, human-readable government reference (for example: ADN-AB12CD34EF).
+  /// Kept separate from the internal UUID so citizen-facing screens never need
+  /// to expose database identifiers.
+  final String? referenceNo;
   final String title;
   final String description;
   final ReportCategory category;
@@ -125,13 +130,18 @@ class Report extends Equatable {
 
   bool get hasLocation => latitude != null && longitude != null;
 
+  String get displayReference =>
+      referenceNo?.trim().isNotEmpty == true ? referenceNo! : id;
+
   Report copyWith({
     String? id,
+    String? referenceNo,
     ReportStatus? status,
     List<TimelineEntry>? timeline,
   }) {
     return Report(
       id: id ?? this.id,
+      referenceNo: referenceNo ?? this.referenceNo,
       title: title,
       description: description,
       category: category,
@@ -147,5 +157,5 @@ class Report extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, title, status, createdAt];
+  List<Object?> get props => [id, referenceNo, title, status, createdAt];
 }
