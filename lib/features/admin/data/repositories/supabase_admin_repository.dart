@@ -56,11 +56,16 @@ class SupabaseAdminRepository implements AdminRepository {
     }).toList();
   }
 
+  String _databaseStatus(String value) => switch (value) {
+        'inProgress' => 'in_progress',
+        _ => value,
+      };
+
   @override
   Future<void> updateReportStatus(String reportId, String newStatus) async {
     await _client.rpc('update_report_status', params: {
       'p_report_id': reportId,
-      'p_status': newStatus,
+      'p_status': _databaseStatus(newStatus),
     });
   }
 
