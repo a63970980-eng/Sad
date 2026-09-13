@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -57,7 +56,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       setState(() => _error = AppLocalizations.of(context).invalidOtp);
       _otpController.clear();
     }
-    // On success, router redirect navigates to home automatically.
   }
 
   Future<void> _resend() async {
@@ -65,7 +63,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     await ref
         .read(loginControllerProvider.notifier)
         .sendCode(state.phone, rememberMe: true);
-    _startTimer();
+    if (mounted) _startTimer();
   }
 
   @override
@@ -86,7 +84,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Container(
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primarySoft,
                   shape: BoxShape.circle,
                 ),
