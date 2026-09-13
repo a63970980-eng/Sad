@@ -4,10 +4,13 @@ import 'firebase_options.dart';
 class AppConfig {
   AppConfig._();
 
-  /// When true, Firebase failed to initialize (or is unconfigured) and the
-  /// app runs against in-memory mock services so every screen is usable.
+  /// Legacy Firebase/demo compatibility flag. Firebase is being migrated
+  /// feature-by-feature and is not removed until every consumer is migrated.
   static bool demoMode = DefaultFirebaseOptions.isPlaceholder;
 
-  /// Demo OTP accepted in demo mode.
+  /// Indicates that the production Supabase backend initialized successfully.
+  static bool supabaseReady = false;
+
+  /// Demo OTP accepted in legacy demo mode.
   static const String demoOtp = '123456';
 }
