@@ -109,24 +109,27 @@ class Report extends Equatable {
     this.longitude,
     this.address,
     this.userId,
+    this.isAnonymous = false,
   });
 
   final String id;
   /// Stable, human-readable government reference (for example: ADN-AB12CD34EF).
-  /// Kept separate from the internal UUID so citizen-facing screens never need
-  /// to expose database identifiers.
   final String? referenceNo;
   final String title;
   final String description;
   final ReportCategory category;
   final ReportStatus status;
   final DateTime createdAt;
-  final List<String> photos; // local paths or remote URLs
+  final List<String> photos;
   final List<TimelineEntry> timeline;
   final double? latitude;
   final double? longitude;
   final String? address;
   final String? userId;
+  /// Whether the citizen requested anonymous handling of the report.
+  /// The account linkage remains available to the platform for ownership,
+  /// follow-up and audit; presentation layers should respect this flag.
+  final bool isAnonymous;
 
   bool get hasLocation => latitude != null && longitude != null;
 
@@ -138,6 +141,7 @@ class Report extends Equatable {
     String? referenceNo,
     ReportStatus? status,
     List<TimelineEntry>? timeline,
+    bool? isAnonymous,
   }) {
     return Report(
       id: id ?? this.id,
@@ -153,9 +157,10 @@ class Report extends Equatable {
       longitude: longitude,
       address: address,
       userId: userId,
+      isAnonymous: isAnonymous ?? this.isAnonymous,
     );
   }
 
   @override
-  List<Object?> get props => [id, referenceNo, title, status, createdAt];
+  List<Object?> get props => [id, referenceNo, title, status, createdAt, isAnonymous];
 }
