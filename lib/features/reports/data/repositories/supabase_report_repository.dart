@@ -17,12 +17,15 @@ class SupabaseReportRepository implements ReportRepository {
 
   @override
   Stream<List<Report>> watchUserReports(String userId) async* {
+    // Emit the current snapshot first. The previous implementation pushed this
+    // into a controller before a listener existed, which could silently drop it.
+    yield await fetchUserReports(userId);
+
     final controller = StreamController<List<Report>>();
-    late final RealtimeChannel channel;
     var closed = false;
 
     Future<void> refresh() async {
-      if (closed) return;
+      if (closed || controller.isClosed) return;
       try {
         controller.add(await fetchUserReports(userId));
       } catch (error, stackTrace) {
@@ -30,8 +33,7 @@ class SupabaseReportRepository implements ReportRepository {
       }
     }
 
-    await refresh();
-    channel = _client
+    final channel = _client
         .channel('citizen-reports-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -46,10 +48,13 @@ class SupabaseReportRepository implements ReportRepository {
         )
         .subscribe();
 
-    yield* controller.stream;
-    closed = true;
-    await _client.removeChannel(channel);
-    await controller.close();
+    try {
+      yield* controller.stream;
+    } finally {
+      closed = true;
+      await _client.removeChannel(channel);
+      await controller.close();
+    }
   }
 
   @override
