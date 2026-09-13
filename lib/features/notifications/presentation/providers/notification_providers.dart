@@ -9,13 +9,17 @@ import '../../domain/app_notification.dart';
 
 class NotificationsController extends Notifier<List<AppNotification>> {
   bool _loading = false;
+  bool _disposed = false;
   StreamSubscription? _authSubscription;
 
   @override
   List<AppNotification> build() {
-    ref.onDispose(() => _authSubscription?.cancel());
+    ref.onDispose(() {
+      _disposed = true;
+      _authSubscription?.cancel();
+    });
     _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen((_) {
-      if (!ref.mounted) return;
+      if (_disposed) return;
       ref.invalidateSelf();
     });
 
@@ -29,18 +33,18 @@ class NotificationsController extends Notifier<List<AppNotification>> {
   }
 
   Future<void> _loadFromSupabase() async {
-    if (_loading || !ref.mounted) return;
+    if (_loading || _disposed) return;
     _loading = true;
     try {
       final userId = SupabaseConfig.client.auth.currentUser?.id;
-      if (userId == null || !AppConfig.supabaseDataEnabled) return;
+      if (userId == null || !AppConfig.supabaseDataEnabled || _disposed) return;
       final rows = await SupabaseConfig.client
           .from('notifications')
           .select('id,title_ar,body_ar,type,read_at,created_at')
           .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(100);
-      if (!ref.mounted) return;
+      if (_disposed) return;
       state = List<Map<String, dynamic>>.from(rows).map(_fromRow).toList();
     } catch (_) {
       // Notifications are non-blocking; keep the current state on failure.
@@ -97,7 +101,7 @@ class NotificationsController extends Notifier<List<AppNotification>> {
           .eq('user_id', userId)
           .isFilter('read_at', null);
     } catch (_) {
-      if (ref.mounted) state = previous;
+      if (!_disposed) state = previous;
     }
   }
 
@@ -116,7 +120,7 @@ class NotificationsController extends Notifier<List<AppNotification>> {
           .eq('id', id)
           .eq('user_id', userId);
     } catch (_) {
-      if (ref.mounted) state = previous;
+      if (!_disposed) state = previous;
     }
   }
 
