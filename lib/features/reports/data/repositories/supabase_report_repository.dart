@@ -74,6 +74,13 @@ class SupabaseReportRepository implements ReportRepository {
         .select('id')
         .eq('code', report.category.id)
         .maybeSingle();
+
+    // Older UI builds encoded the identity choice in the description. Keep that
+    // path compatible while persisting a first-class database flag for new data.
+    final anonymousFromLegacyDescription =
+        report.description.contains('[الهوية: مجهول الهوية]');
+    final isAnonymous = report.isAnonymous || anonymousFromLegacyDescription;
+
     final row = await _client.from('reports').insert({
       'id': report.id,
       'citizen_id': user.id,
@@ -85,6 +92,7 @@ class SupabaseReportRepository implements ReportRepository {
       'latitude': report.latitude,
       'longitude': report.longitude,
       'address': report.address,
+      'is_anonymous': isAnonymous,
     }).select().single();
     final uploaded = <String>[];
     for (var i = 0; i < report.photos.length; i++) {
@@ -165,6 +173,7 @@ class SupabaseReportRepository implements ReportRepository {
       longitude: (row['longitude'] as num?)?.toDouble(),
       address: row['address']?.toString(),
       userId: row['citizen_id']?.toString(),
+      isAnonymous: row['is_anonymous'] == true,
       timeline: timeline.map((item) {
         final map = Map<String, dynamic>.from(item as Map);
         return TimelineEntry(
