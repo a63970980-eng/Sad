@@ -57,15 +57,10 @@ class SupabaseAdminRepository implements AdminRepository {
   }
 
   @override
-  Future<void> updateReportStatus(
-    String reportId,
-    String newStatus, {
-    String? note,
-  }) async {
+  Future<void> updateReportStatus(String reportId, String newStatus) async {
     await _client.rpc('update_report_status', params: {
       'p_report_id': reportId,
       'p_status': newStatus,
-      'p_note': note,
     });
   }
 
