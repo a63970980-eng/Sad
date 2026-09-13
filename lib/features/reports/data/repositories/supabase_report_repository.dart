@@ -154,6 +154,7 @@ class SupabaseReportRepository implements ReportRepository {
     final timeline = (row['report_timeline'] as List?) ?? const [];
     return Report(
       id: row['id'].toString(),
+      referenceNo: row['reference_no']?.toString(),
       title: row['title']?.toString() ?? '',
       description: row['description']?.toString() ?? '',
       category: ReportCategoryX.fromId(categoryCode ?? 'publicSafety'),
