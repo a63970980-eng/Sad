@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/supabase_config.dart';
@@ -68,7 +70,7 @@ class SupabaseServiceRepository {
             try {
               controller.add(await load());
             } catch (e, st) {
-              controller.addError(e, st);
+              if (!controller.isClosed) controller.addError(e, st);
             }
           },
         )
