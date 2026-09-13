@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
-
 import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
@@ -40,12 +39,10 @@ class AppRoutes {
   static const adminDashboard = '/admin/dashboard';
 }
 
-/// Re-runs router redirect whenever auth changes.
 class _AuthListenable extends ChangeNotifier {
   _AuthListenable(this.ref) {
     ref.listen(authStateProvider, (_, __) => notifyListeners());
   }
-
   final Ref ref;
 }
 
@@ -56,254 +53,69 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: rootKey,
-
-    // Start with the splash screen.
     initialLocation: AppRoutes.splash,
-
     refreshListenable: authListenable,
-
     redirect: (context, state) {
       final auth = ref.read(authStateProvider);
       final loc = state.matchedLocation;
+      final user = auth.valueOrNull;
 
-      // ============================================================
-      // DEMO MODE
-      // ============================================================
-      // Firebase is not configured, so send the user from Splash
-      // directly to the demo login screen.
       if (AppConfig.demoMode) {
-        if (loc == AppRoutes.splash) {
-          return AppRoutes.login;
-        }
-
-        final loggedIn = auth.valueOrNull != null;
-
-        final onAuthFlow =
-            loc == AppRoutes.login || loc == AppRoutes.otp;
-
-        // Not logged in -> stay in login/OTP.
-        if (!loggedIn && !onAuthFlow) {
-          return AppRoutes.login;
-        }
-
-        // Logged in after demo OTP -> go to Home.
-        if (loggedIn && onAuthFlow) {
+        if (loc == AppRoutes.splash) return AppRoutes.login;
+        final loggedIn = user != null;
+        final onAuthFlow = loc == AppRoutes.login || loc == AppRoutes.otp;
+        if (!loggedIn && !onAuthFlow) return AppRoutes.login;
+        if (loggedIn && onAuthFlow) return AppRoutes.home;
+        if (loc == AppRoutes.adminDashboard &&
+            !(user?.canAccessAdminDashboard ?? false)) {
           return AppRoutes.home;
         }
-
         return null;
       }
 
-      // ============================================================
-      // NORMAL FIREBASE MODE
-      // ============================================================
-
-      // While Firebase authentication is resolving,
-      // keep the user on Splash.
       if (auth.isLoading) {
         return loc == AppRoutes.splash ? null : AppRoutes.splash;
       }
 
-      final loggedIn = auth.valueOrNull != null;
-
+      final loggedIn = user != null;
       final onAuthFlow = loc == AppRoutes.login ||
           loc == AppRoutes.otp ||
           loc == AppRoutes.splash;
 
-      if (!loggedIn && !onAuthFlow) {
-        return AppRoutes.login;
-      }
+      if (!loggedIn && !onAuthFlow) return AppRoutes.login;
+      if (loggedIn && onAuthFlow) return AppRoutes.home;
 
-      if (loggedIn && onAuthFlow) {
+      if (loc == AppRoutes.adminDashboard &&
+          !(user?.canAccessAdminDashboard ?? false)) {
         return AppRoutes.home;
       }
 
       return null;
     },
-
     routes: [
-      // ============================================================
-      // SPLASH
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.splash,
-        builder: (_, __) => const SplashScreen(),
-      ),
-
-      // ============================================================
-      // LOGIN
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.login,
-        builder: (_, __) => const LoginScreen(),
-      ),
-
-      // ============================================================
-      // OTP
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.otp,
-        builder: (_, __) => const OtpScreen(),
-      ),
-
-      // ============================================================
-      // MAIN APP
-      // ============================================================
+      GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
+      GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
+      GoRoute(path: AppRoutes.otp, builder: (_, __) => const OtpScreen()),
       ShellRoute(
         navigatorKey: shellKey,
-        builder: (context, state, child) {
-          return AppShell(
-            state: state,
-            child: child,
-          );
-        },
+        builder: (context, state, child) => AppShell(state: state, child: child),
         routes: [
-          GoRoute(
-            path: AppRoutes.home,
-            pageBuilder: (_, __) {
-              return const NoTransitionPage(
-                child: HomeScreen(),
-              );
-            },
-          ),
-
-          GoRoute(
-            path: AppRoutes.services,
-            pageBuilder: (_, __) {
-              return const NoTransitionPage(
-                child: ServicesScreen(),
-              );
-            },
-          ),
-
-          GoRoute(
-            path: AppRoutes.reports,
-            pageBuilder: (_, __) {
-              return const NoTransitionPage(
-                child: ReportsScreen(),
-              );
-            },
-          ),
-
-          GoRoute(
-            path: AppRoutes.map,
-            pageBuilder: (_, __) {
-              return const NoTransitionPage(
-                child: MapScreen(),
-              );
-            },
-          ),
-
-          GoRoute(
-            path: AppRoutes.profile,
-            pageBuilder: (_, __) {
-              return const NoTransitionPage(
-                child: ProfileScreen(),
-              );
-            },
-          ),
+          GoRoute(path: AppRoutes.home, pageBuilder: (_, __) => const NoTransitionPage(child: HomeScreen())),
+          GoRoute(path: AppRoutes.services, pageBuilder: (_, __) => const NoTransitionPage(child: ServicesScreen())),
+          GoRoute(path: AppRoutes.reports, pageBuilder: (_, __) => const NoTransitionPage(child: ReportsScreen())),
+          GoRoute(path: AppRoutes.map, pageBuilder: (_, __) => const NoTransitionPage(child: MapScreen())),
+          GoRoute(path: AppRoutes.profile, pageBuilder: (_, __) => const NoTransitionPage(child: ProfileScreen())),
         ],
       ),
-
-      // ============================================================
-      // NOTIFICATIONS
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.notifications,
-        parentNavigatorKey: rootKey,
-        builder: (_, __) => const NotificationsScreen(),
-      ),
-
-      // ============================================================
-      // NEW REPORT
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.newReport,
-        parentNavigatorKey: rootKey,
-        builder: (_, __) => const NewReportScreen(),
-      ),
-
-      // ============================================================
-      // REPORT DETAILS
-      // ============================================================
-      GoRoute(
-        path: '/reports/:id',
-        parentNavigatorKey: rootKey,
-        builder: (_, state) {
-          return ReportDetailScreen(
-            reportId: state.pathParameters['id']!,
-          );
-        },
-      ),
-
-      // ============================================================
-      // SERVICE DETAILS
-      // ============================================================
-      GoRoute(
-        path: '/services/:id',
-        parentNavigatorKey: rootKey,
-        builder: (_, state) {
-          return ServiceDetailScreen(
-            serviceId: state.pathParameters['id']!,
-          );
-        },
-      ),
-
-      // ============================================================
-      // SERVICE FORM
-      // ============================================================
-      GoRoute(
-        path: '/services/:id/form/:action',
-        parentNavigatorKey: rootKey,
-        builder: (_, state) {
-          return ServiceFormScreen(
-            serviceId: state.pathParameters['id']!,
-            actionId: state.pathParameters['action']!,
-          );
-        },
-      ),
-
-      // ============================================================
-      // TRACK REQUEST
-      // ============================================================
-      GoRoute(
-        path: '/services/:id/track/:action',
-        parentNavigatorKey: rootKey,
-        builder: (_, state) {
-          return TrackRequestScreen(
-            serviceId: state.pathParameters['id']!,
-            actionId: state.pathParameters['action']!,
-            initialReference: state.uri.queryParameters['ref'],
-          );
-        },
-      ),
-
-      // ============================================================
-      // EDIT PROFILE
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.editProfile,
-        parentNavigatorKey: rootKey,
-        builder: (_, __) => const EditProfileScreen(),
-      ),
-
-      // ============================================================
-      // ABOUT
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.about,
-        parentNavigatorKey: rootKey,
-        builder: (_, __) => const AboutScreen(),
-      ),
-
-      // ============================================================
-      // ADMIN DASHBOARD
-      // ============================================================
-      GoRoute(
-        path: AppRoutes.adminDashboard,
-        parentNavigatorKey: rootKey,
-        builder: (_, __) => const AdminDashboardScreen(),
-      ),
+      GoRoute(path: AppRoutes.notifications, parentNavigatorKey: rootKey, builder: (_, __) => const NotificationsScreen()),
+      GoRoute(path: AppRoutes.newReport, parentNavigatorKey: rootKey, builder: (_, __) => const NewReportScreen()),
+      GoRoute(path: '/reports/:id', parentNavigatorKey: rootKey, builder: (_, state) => ReportDetailScreen(reportId: state.pathParameters['id']!)),
+      GoRoute(path: '/services/:id', parentNavigatorKey: rootKey, builder: (_, state) => ServiceDetailScreen(serviceId: state.pathParameters['id']!)),
+      GoRoute(path: '/services/:id/form/:action', parentNavigatorKey: rootKey, builder: (_, state) => ServiceFormScreen(serviceId: state.pathParameters['id']!, actionId: state.pathParameters['action']!)),
+      GoRoute(path: '/services/:id/track/:action', parentNavigatorKey: rootKey, builder: (_, state) => TrackRequestScreen(serviceId: state.pathParameters['id']!, actionId: state.pathParameters['action']!, initialReference: state.uri.queryParameters['ref'])),
+      GoRoute(path: AppRoutes.editProfile, parentNavigatorKey: rootKey, builder: (_, __) => const EditProfileScreen()),
+      GoRoute(path: AppRoutes.about, parentNavigatorKey: rootKey, builder: (_, __) => const AboutScreen()),
+      GoRoute(path: AppRoutes.adminDashboard, parentNavigatorKey: rootKey, builder: (_, __) => const AdminDashboardScreen()),
     ],
   );
 });
