@@ -74,6 +74,12 @@ class AppTheme {
       splashFactory: InkSparkle.splashFactory,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       materialTapTargetSize: MaterialTapTargetSize.padded,
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: AppColors.primary,
+        linearTrackColor: isLight ? AppColors.primarySoft : AppColors.darkBorder,
+        circularTrackColor: isLight ? AppColors.primarySoft : AppColors.darkBorder,
+        strokeCap: StrokeCap.round,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: isLight ? AppColors.lightBg : AppColors.darkBg,
         foregroundColor: scheme.onSurface,
@@ -157,6 +163,15 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       ),
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        minVerticalPadding: 8,
+        iconColor: scheme.onSurfaceVariant,
+        textColor: scheme.onSurface,
+        titleTextStyle: textTheme.titleMedium,
+        subtitleTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        shape: shape,
+      ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: isLight ? AppColors.lightSurface : AppColors.darkSurface,
         modalBackgroundColor: isLight ? AppColors.lightSurface : AppColors.darkSurface,
@@ -188,6 +203,32 @@ class AppTheme {
               color: states.contains(WidgetState.selected) ? AppColors.primary : scheme.onSurfaceVariant,
             )),
       ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        highlightElevation: 5,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 46)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14)),
+          shape: WidgetStatePropertyAll(shape),
+          side: WidgetStatePropertyAll(outline),
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbIcon: WidgetStateProperty.resolveWith((states) => Icon(
+              states.contains(WidgetState.selected) ? Icons.check_rounded : Icons.remove_rounded,
+              size: 16,
+            )),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        side: outline,
+      ),
+      radioTheme: RadioThemeData(fillColor: WidgetStatePropertyAll(AppColors.primary)),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: isLight ? AppColors.darkSurface : AppColors.lightSurface,
