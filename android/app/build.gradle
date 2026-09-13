@@ -15,6 +15,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // The Google Maps key is intentionally supplied at build time and is
+        // never stored in source control. Example: -PMAPS_API_KEY=...
+        manifestPlaceholders = [
+            MAPS_API_KEY: project.findProperty("MAPS_API_KEY") ?: ""
+        ]
     }
 
     compileOptions {
@@ -29,12 +35,6 @@ android {
     buildFeatures {
         buildConfig = true
     }
-
-    // The Google Maps key is intentionally supplied at build time and is never
-    // stored in source control. Example: -PMAPS_API_KEY=...
-    manifestPlaceholders = [
-        MAPS_API_KEY: project.findProperty("MAPS_API_KEY") ?: ""
-    ]
 
     signingConfigs {
         release {
