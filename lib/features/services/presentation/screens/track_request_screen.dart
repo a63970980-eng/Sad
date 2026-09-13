@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/l10n_lookup.dart';
 import '../../../../core/widgets/app_widgets.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../reports/domain/entities/report.dart';
 import '../../data/services_catalog.dart';
+import '../../data/repositories/supabase_service_repository.dart';
 
 class TrackRequestScreen extends StatefulWidget {
   const TrackRequestScreen({
@@ -25,17 +24,18 @@ class TrackRequestScreen extends StatefulWidget {
 
 class _TrackRequestScreenState extends State<TrackRequestScreen> {
   late final TextEditingController _ref;
+  final SupabaseServiceRepository _repository = SupabaseServiceRepository();
   bool _loading = false;
-  _TrackResult? _result;
+  String? _error;
+  Map<String, dynamic>? _request;
+  List<Map<String, dynamic>> _timeline = const [];
 
   @override
   void initState() {
     super.initState();
     _ref = TextEditingController(text: widget.initialReference);
     if (widget.initialReference != null && widget.initialReference!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _track();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _track());
     }
   }
 
@@ -46,43 +46,64 @@ class _TrackRequestScreenState extends State<TrackRequestScreen> {
   }
 
   Future<void> _track() async {
-    if (_ref.text.trim().isEmpty) return;
+    final reference = _ref.text.trim().toUpperCase();
+    if (reference.isEmpty) return;
+
     FocusScope.of(context).unfocus();
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    final now = DateTime.now();
     setState(() {
-      _loading = false;
-      _result = _TrackResult(
-        reference: _ref.text.trim().toUpperCase(),
-        status: ReportStatus.inProgress,
-        timeline: [
-          TimelineEntry(status: ReportStatus.submitted, date: now.subtract(const Duration(days: 4))),
-          TimelineEntry(status: ReportStatus.reviewing, date: now.subtract(const Duration(days: 3))),
-          TimelineEntry(status: ReportStatus.inProgress, date: now.subtract(const Duration(days: 1))),
-        ],
-      );
+      _loading = true;
+      _error = null;
+      _request = null;
+      _timeline = const [];
     });
+
+    try {
+      final request = await _repository.fetchRequestByReference(reference);
+      if (!mounted) return;
+      if (request == null) {
+        setState(() {
+          _loading = false;
+          _error = 'لم يتم العثور على طلب بهذا الرقم ضمن طلبات حسابك.';
+        });
+        return;
+      }
+
+      final timeline = await _repository.fetchRequestTimeline(
+        request['id'].toString(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _request = request;
+        _timeline = timeline;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'تعذر تحميل حالة الطلب حالياً. تحقق من الاتصال وحاول مرة أخرى.';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final service = ServicesCatalog.byId(widget.serviceId);
-    final action =
-        service?.actions.where((a) => a.id == widget.actionId).firstOrNull;
-    final title = action != null ? tr(l, action.titleKey) : l.track;
+    final action = service?.actions.where((a) => a.id == widget.actionId).firstOrNull;
+    final title = action?.titleKey == null ? l.track : _translateAction(l, action!.titleKey);
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Text(l.actTrackId,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'رقم الطلب',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -91,9 +112,10 @@ class _TrackRequestScreenState extends State<TrackRequestScreen> {
                   controller: _ref,
                   textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(
-                    hintText: 'REQ-XXXXXX',
+                    hintText: 'REQ-XXXXXXXXXX',
                     prefixIcon: Icon(Icons.tag_rounded),
                   ),
+                  onSubmitted: (_) => _track(),
                 ),
               ),
               const SizedBox(width: 10),
@@ -106,29 +128,76 @@ class _TrackRequestScreenState extends State<TrackRequestScreen> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white)))
+                            strokeWidth: 2.2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
                       : Text(l.track),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          if (_result != null) _ResultCard(result: _result!),
+          const SizedBox(height: 20),
+          if (_error != null)
+            AppCard(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: AppColors.danger),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_request != null) ...[
+            _RequestHeader(request: _request!),
+            const SizedBox(height: 16),
+            _TimelineCard(
+              request: _request!,
+              timeline: _timeline,
+            ),
+          ],
         ],
       ),
     );
   }
+
+  String _translateAction(AppLocalizations l, String key) {
+    switch (key) {
+      case 'actApplyId':
+        return l.actApplyId;
+      case 'actRenewId':
+        return l.actRenewId;
+      case 'actNewPassport':
+        return l.actNewPassport;
+      case 'actRenewPassport':
+        return l.actRenewPassport;
+      case 'actNewLicense':
+        return l.actNewLicense;
+      case 'actRenewLicense':
+        return l.actRenewLicense;
+      case 'actVehicleReg':
+        return l.actVehicleReg;
+      case 'actOwnershipTransfer':
+        return l.actOwnershipTransfer;
+      default:
+        return l.track;
+    }
+  }
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.result});
-  final _TrackResult result;
+class _RequestHeader extends StatelessWidget {
+  const _RequestHeader({required this.request});
+  final Map<String, dynamic> request;
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final t = Theme.of(context).textTheme;
+    final status = request['status']?.toString() ?? 'submitted';
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,23 +205,62 @@ class _ResultCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(result.reference,
-                    style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                child: Text(
+                  request['reference_no']?.toString() ?? '—',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.4,
+                      ),
+                ),
               ),
-              StatusPill(
-                label: tr(l, result.status.labelKey),
-                color: result.status.color,
-              ),
+              StatusPill(label: _statusLabel(status), color: _statusColor(status)),
             ],
           ),
-          const Divider(height: 28),
-          Text(l.reportTimeline,
-              style: t.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          for (int i = 0; i < result.timeline.length; i++)
+          const SizedBox(height: 14),
+          Text(
+            'آخر تحديث: ${_formatDate(request['updated_at'] ?? request['created_at'])}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimelineCard extends StatelessWidget {
+  const _TimelineCard({required this.request, required this.timeline});
+  final Map<String, dynamic> request;
+  final List<Map<String, dynamic>> timeline;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = timeline.isEmpty
+        ? [
+            {
+              'status': request['status']?.toString() ?? 'submitted',
+              'created_at': request['created_at'],
+              'note': null,
+            }
+          ]
+        : timeline;
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'سجل الطلب',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 18),
+          for (int i = 0; i < entries.length; i++)
             _TimelineRow(
-              entry: result.timeline[i],
-              isLast: i == result.timeline.length - 1,
+              entry: entries[i],
+              isLast: i == entries.length - 1,
             ),
         ],
       ),
@@ -162,13 +270,12 @@ class _ResultCard extends StatelessWidget {
 
 class _TimelineRow extends StatelessWidget {
   const _TimelineRow({required this.entry, required this.isLast});
-  final TimelineEntry entry;
+  final Map<String, dynamic> entry;
   final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final t = Theme.of(context).textTheme;
+    final status = entry['status']?.toString() ?? 'submitted';
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,35 +286,46 @@ class _TimelineRow extends StatelessWidget {
                 width: 14,
                 height: 14,
                 decoration: BoxDecoration(
-                  color: entry.status.color,
+                  color: _statusColor(status),
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: entry.status.color.withValues(alpha: 0.3), width: 4),
+                    color: _statusColor(status).withValues(alpha: 0.25),
+                    width: 4,
+                  ),
                 ),
               ),
               if (!isLast)
                 Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppColors.lightBorder,
-                  ),
+                  child: Container(width: 2, color: AppColors.lightBorder),
                 ),
             ],
           ),
           const SizedBox(width: 12),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr(l, entry.status.labelKey),
-                    style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
-                Text(
-                  '${entry.date.year}/${entry.date.month}/${entry.date.day}',
-                  style: t.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
-                ),
-              ],
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _statusLabel(status),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _formatDate(entry['created_at']),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  if ((entry['note']?.toString() ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(entry['note'].toString()),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
@@ -216,10 +334,49 @@ class _TimelineRow extends StatelessWidget {
   }
 }
 
-class _TrackResult {
-  _TrackResult(
-      {required this.reference, required this.status, required this.timeline});
-  final String reference;
-  final ReportStatus status;
-  final List<TimelineEntry> timeline;
+String _statusLabel(String status) {
+  switch (status) {
+    case 'submitted':
+      return 'تم الاستلام';
+    case 'reviewing':
+      return 'قيد المراجعة';
+    case 'assigned':
+      return 'تمت الإحالة';
+    case 'in_progress':
+      return 'قيد التنفيذ';
+    case 'approved':
+      return 'تمت الموافقة';
+    case 'completed':
+      return 'مكتمل';
+    case 'rejected':
+      return 'مرفوض';
+    case 'cancelled':
+      return 'ملغى';
+    default:
+      return status;
+  }
+}
+
+Color _statusColor(String status) {
+  switch (status) {
+    case 'completed':
+    case 'approved':
+      return AppColors.success;
+    case 'rejected':
+    case 'cancelled':
+      return AppColors.danger;
+    case 'in_progress':
+    case 'assigned':
+      return AppColors.info;
+    case 'reviewing':
+      return AppColors.warning;
+    default:
+      return AppColors.primary;
+  }
+}
+
+String _formatDate(dynamic value) {
+  final date = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
+  if (date == null) return '—';
+  return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')} • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 }
