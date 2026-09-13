@@ -5,7 +5,7 @@
 class AppConfig {
   AppConfig._();
 
-  /// Demo mode is never inferred from placeholder Firebase configuration.
+  /// Demo mode is never inferred from backend configuration.
   /// This prevents an accidentally misconfigured release from accepting a
   /// development OTP or mock session.
   static const bool demoMode = bool.fromEnvironment(
