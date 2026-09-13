@@ -28,18 +28,18 @@ Future<void> main() async {
     AppConfig.supabaseDataEnabled = false;
   }
 
+  // Firebase remains available for legacy messaging/storage integrations when
+  // real platform options are supplied, but it no longer controls whether the
+  // app enters demo mode. Production authentication is governed explicitly by
+  // AppConfig and Supabase.
   if (!DefaultFirebaseOptions.isPlaceholder) {
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      AppConfig.demoMode = false;
     } catch (e) {
       debugPrint('Firebase init failed: $e');
-      AppConfig.demoMode = true;
     }
-  } else {
-    AppConfig.demoMode = true;
   }
 
   final prefs = await SharedPreferences.getInstance();
