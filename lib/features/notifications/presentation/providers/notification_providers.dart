@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/config/supabase_config.dart';
@@ -33,13 +32,9 @@ class NotificationsController extends Notifier<List<AppNotification>> {
           .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(100);
-      if (!ref.mounted) return;
-      state = List<Map<String, dynamic>>.from(rows)
-          .map(_fromRow)
-          .toList();
+      state = List<Map<String, dynamic>>.from(rows).map(_fromRow).toList();
     } catch (_) {
-      // Keep the notification surface resilient; a temporary notification
-      // failure must never block the citizen app.
+      // Notifications are non-blocking; a temporary failure must not block the app.
     } finally {
       _loading = false;
     }
@@ -98,7 +93,7 @@ class NotificationsController extends Notifier<List<AppNotification>> {
       AppNotification(id: 'n2', titleAr: 'طلبك جاهز للاستلام', titleEn: 'Your request is ready', bodyAr: 'تمت الموافقة على طلبك.', bodyEn: 'Your request has been approved.', type: NotificationType.service, date: now.subtract(const Duration(hours: 6))),
       AppNotification(id: 'n3', titleAr: 'إعلان حكومي مهم', titleEn: 'Important announcement', bodyAr: 'يوجد إعلان حكومي جديد.', bodyEn: 'A new government announcement is available.', type: NotificationType.announcement, date: now.subtract(const Duration(hours: 12))),
       AppNotification(id: 'n5', titleAr: 'تم حل بلاغك', titleEn: 'Your report has been resolved', bodyAr: 'تم حل البلاغ بنجاح.', bodyEn: 'Your report was resolved successfully.', type: NotificationType.report, date: now.subtract(const Duration(days: 2))),
-      AppNotification(id: 'n7', titleAr: 'مرحباً بك في منصة عدن الرقمية', titleEn: 'Welcome to Aden Digital', bodyAr: 'استكشف الخدمات الحكومية المتاحة الآن.', bodyEn: 'Explore available government services.', type: NotificationType.system, date: now.subtract(const Duration(days: 5)), read: true),
+      AppNotification(id: 'n7', titleAr: 'مرحباً بك في منصة عدن الرقمية', titleEn: 'Welcome to Aden Digital', bodyAr: 'استكشف الخدمات الحكومية المتاحة الآن.', bodyEn: 'Explore government services.', type: NotificationType.system, date: now.subtract(const Duration(days: 5)), read: true),
     ];
   }
 }
