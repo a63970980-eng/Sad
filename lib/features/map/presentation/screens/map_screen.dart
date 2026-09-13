@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/settings_controller.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/map_place.dart';
-import '../widgets/canvas_map.dart';
+import '../widgets/google_map_view.dart';
 
 final mapFilterProvider =
     StateProvider<Set<PlaceType>>((ref) => PlaceType.values.toSet());
@@ -67,7 +67,7 @@ class MapScreen extends ConsumerWidget {
           Expanded(
             child: Stack(
               children: [
-                CanvasMap(
+                GoogleMapView(
                   places: visible,
                   isAr: isAr,
                   onTapPlace: (p) => _showPlaceSheet(context, p, isAr, l),
