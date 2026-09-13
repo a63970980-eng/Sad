@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/storage/secure_storage_service.dart';
-import '../../data/repositories/firebase_auth_repository.dart';
 import '../../data/repositories/mock_auth_repository.dart';
 import '../../data/repositories/supabase_auth_repository.dart';
 import '../../data/repositories/unavailable_auth_repository.dart';
@@ -12,14 +11,14 @@ import '../../domain/repositories/auth_repository.dart';
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   if (AppConfig.demoMode) return MockAuthRepository();
 
-  if (AppConfig.supabaseAuthEnabled) {
-    if (AppConfig.supabaseReady) return SupabaseAuthRepository();
-    return const UnavailableAuthRepository();
+  if (AppConfig.supabaseAuthEnabled && AppConfig.supabaseReady) {
+    return SupabaseAuthRepository();
   }
 
-  // Firebase remains a compatibility path only when Supabase auth is
-  // explicitly disabled at build time.
-  return FirebaseAuthRepository();
+  // Production has no secondary authentication backend. If Supabase is
+  // unavailable, fail closed rather than silently falling back to a legacy
+  // provider or demo account.
+  return const UnavailableAuthRepository();
 });
 
 final authStateProvider = StreamProvider<AppUser?>((ref) {
