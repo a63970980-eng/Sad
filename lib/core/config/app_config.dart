@@ -1,16 +1,22 @@
 import 'firebase_options.dart';
 
-/// Runtime configuration / capability flags.
+/// Runtime configuration and backend capability flags.
 class AppConfig {
   AppConfig._();
 
-  /// Legacy Firebase/demo compatibility flag. Firebase is being migrated
-  /// feature-by-feature and is not removed until every consumer is migrated.
+  /// Legacy Firebase/demo compatibility flag.
   static bool demoMode = DefaultFirebaseOptions.isPlaceholder;
 
-  /// Indicates that the production Supabase backend initialized successfully.
+  /// True when Supabase has initialized successfully.
   static bool supabaseReady = false;
 
-  /// Demo OTP accepted in legacy demo mode.
+  /// Data repositories can migrate to Supabase independently from Auth.
+  static bool supabaseDataEnabled = false;
+
+  /// Keep phone OTP on the proven legacy path until the Supabase SMS provider
+  /// is explicitly configured for production. This prevents a backend
+  /// initialization from silently breaking the login flow.
+  static bool supabaseAuthEnabled = false;
+
   static const String demoOtp = '123456';
 }
