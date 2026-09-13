@@ -2,15 +2,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/config/supabase_config.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_report_repository.dart';
 import '../../data/repositories/mock_report_repository.dart';
+import '../../data/repositories/supabase_report_repository.dart';
 import '../../domain/entities/report.dart';
 import '../../domain/repositories/report_repository.dart';
 
 final _mockRepoSingleton = MockReportRepository();
 
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
+  // Supabase is selected only after a real Supabase session exists. This keeps
+  // the existing demo/Firebase experience intact until Supabase Auth is fully
+  // enabled, while making the production adapter the next backend in line.
+  if (AppConfig.supabaseReady && SupabaseConfig.client.auth.currentUser != null) {
+    return SupabaseReportRepository();
+  }
   if (AppConfig.demoMode) return _mockRepoSingleton;
   return FirebaseReportRepository();
 });
@@ -25,7 +33,6 @@ final userReportsProvider = StreamProvider<List<Report>>((ref) {
 
 final reportByIdProvider =
     FutureProvider.family<Report?, String>((ref, id) async {
-  // Prefer the already-loaded list to stay reactive.
   final reports = ref.watch(userReportsProvider).valueOrNull;
   if (reports != null) {
     for (final r in reports) {
@@ -53,7 +60,10 @@ class SubmitReportController extends AsyncNotifier<Report?> {
     final repo = ref.read(reportRepositoryProvider);
     final user = ref.read(currentUserProvider);
     final now = DateTime.now();
-    final id = 'RPT-${const Uuid().v4().substring(0, 6).toUpperCase()}';
+    // The relational Supabase schema uses UUID primary keys. Firebase/demo
+    // identifiers remain untouched because this is only used by the selected
+    // repository.
+    final id = const Uuid().v4();
 
     final report = Report(
       id: id,
