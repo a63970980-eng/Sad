@@ -1,13 +1,13 @@
-import 'dart:io' show File;
+import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/supabase_config.dart';
 import '../../domain/entities/report.dart';
 import '../../domain/repositories/report_repository.dart';
+import 'report_file_uploader.dart';
 
-/// Production report repository backed by Supabase Postgres + Storage.
+/// Production report repository backed by Supabase Postgres + private Storage.
 class SupabaseReportRepository implements ReportRepository {
   SupabaseReportRepository({SupabaseClient? client})
       : _client = client ?? SupabaseConfig.client;
@@ -17,10 +17,21 @@ class SupabaseReportRepository implements ReportRepository {
 
   @override
   Stream<List<Report>> watchUserReports(String userId) async* {
-    // Postgres Changes is enabled for the table at the infrastructure layer;
-    // reload after every change so ordering and related data stay consistent.
-    yield await fetchUserReports(userId);
-    final channel = _client
+    final controller = StreamController<List<Report>>();
+    late final RealtimeChannel channel;
+    var closed = false;
+
+    Future<void> refresh() async {
+      if (closed) return;
+      try {
+        controller.add(await fetchUserReports(userId));
+      } catch (error, stackTrace) {
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      }
+    }
+
+    await refresh();
+    channel = _client
         .channel('citizen-reports-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -31,20 +42,14 @@ class SupabaseReportRepository implements ReportRepository {
             column: 'citizen_id',
             value: userId,
           ),
-          callback: (_) async {},
+          callback: (_) => refresh(),
         )
         .subscribe();
 
-    try {
-      await for (final _ in Stream.periodic(const Duration(seconds: 1))) {
-        // The periodic refresh is deliberately bounded to a small citizen
-        // dataset and keeps this adapter compatible across supabase_flutter
-        // realtime callback versions. RLS remains the access boundary.
-        yield await fetchUserReports(userId);
-      }
-    } finally {
-      await _client.removeChannel(channel);
-    }
+    yield* controller.stream;
+    closed = true;
+    await _client.removeChannel(channel);
+    await controller.close();
   }
 
   @override
@@ -54,9 +59,14 @@ class SupabaseReportRepository implements ReportRepository {
         .select('*, report_categories(code), report_timeline(status,note,created_at)')
         .eq('citizen_id', userId)
         .order('created_at', ascending: false);
-    return (rows as List)
-        .map((row) => _fromRow(Map<String, dynamic>.from(row as Map)))
-        .toList();
+
+    final reports = <Report>[];
+    for (final raw in (rows as List)) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      row['photos'] = await _signedAttachmentUrls(row['id'].toString());
+      reports.add(_fromRow(row));
+    }
+    return reports;
   }
 
   @override
@@ -98,22 +108,16 @@ class SupabaseReportRepository implements ReportRepository {
       }
 
       final storagePath = '${user.id}/${report.id}/$i.jpg';
-      if (kIsWeb) {
-        // The current report composer supplies local paths on mobile. Web
-        // upload should pass bytes from XFile directly in a future adapter.
-        continue;
-      }
-      await _client.storage.from(_bucket).upload(
-            storagePath,
-            File(path),
-            fileOptions: const FileOptions(contentType: 'image/jpeg'),
-          );
+      await uploadLocalReportFile(_client, _bucket, path, storagePath);
       await _client.from('report_attachments').insert({
         'report_id': report.id,
         'storage_path': storagePath,
         'mime_type': 'image/jpeg',
       });
-      uploaded.add(_client.storage.from(_bucket).getPublicUrl(storagePath));
+      uploaded.add(await _client.storage.from(_bucket).createSignedUrl(
+            storagePath,
+            3600,
+          ));
     }
 
     return _fromRow({...Map<String, dynamic>.from(row), 'photos': uploaded});
@@ -127,7 +131,25 @@ class SupabaseReportRepository implements ReportRepository {
         .eq('id', id)
         .maybeSingle();
     if (row == null) return null;
-    return _fromRow(Map<String, dynamic>.from(row));
+    final mapped = Map<String, dynamic>.from(row);
+    mapped['photos'] = await _signedAttachmentUrls(id);
+    return _fromRow(mapped);
+  }
+
+  Future<List<String>> _signedAttachmentUrls(String reportId) async {
+    final rows = await _client
+        .from('report_attachments')
+        .select('storage_path')
+        .eq('report_id', reportId)
+        .order('created_at');
+
+    final urls = <String>[];
+    for (final raw in (rows as List)) {
+      final path = (raw as Map)['storage_path']?.toString();
+      if (path == null || path.isEmpty) continue;
+      urls.add(await _client.storage.from(_bucket).createSignedUrl(path, 3600));
+    }
+    return urls;
   }
 
   Report _fromRow(Map<String, dynamic> row) {
