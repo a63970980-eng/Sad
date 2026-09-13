@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/config/supabase_config.dart';
@@ -29,7 +30,9 @@ class NotificationsController extends Notifier<List<AppNotification>> {
       if (userId == null) return;
       final rows = await SupabaseConfig.client.from('notifications')
           .select('id,title_ar,body_ar,type,read_at,created_at')
-          .eq('user_id', userId).order('created_at', ascending: false).limit(100);
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(100);
       state = List<Map<String, dynamic>>.from(rows).map(_fromRow).toList();
     } catch (_) {
       // Notification failures are intentionally non-blocking.
@@ -46,42 +49,55 @@ class NotificationsController extends Notifier<List<AppNotification>> {
       event: PostgresChangeEvent.all,
       schema: 'public',
       table: 'notifications',
-      filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: userId),
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'user_id',
+        value: userId,
+      ),
       callback: (_) => unawaited(_loadFromSupabase()),
     ).subscribe();
     ref.onDispose(() => SupabaseConfig.client.removeChannel(channel));
   }
 
   AppNotification _fromRow(Map<String, dynamic> row) => AppNotification(
-    id: row['id'].toString(),
-    titleAr: row['title_ar']?.toString() ?? 'إشعار',
-    titleEn: row['title_ar']?.toString() ?? 'Notification',
-    bodyAr: row['body_ar']?.toString() ?? '', bodyEn: row['body_ar']?.toString() ?? '',
-    type: _type(row['type']?.toString()),
-    date: DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
-    read: row['read_at'] != null,
-  );
+        id: row['id'].toString(),
+        titleAr: row['title_ar']?.toString() ?? 'إشعار',
+        titleEn: row['title_ar']?.toString() ?? 'Notification',
+        bodyAr: row['body_ar']?.toString() ?? '',
+        bodyEn: row['body_ar']?.toString() ?? '',
+        type: _type(row['type']?.toString()),
+        date: DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
+        read: row['read_at'] != null,
+      );
 
   NotificationType _type(String? value) => switch (value) {
-    'report_status' || 'report' => NotificationType.report,
-    'service' || 'service_status' => NotificationType.service,
-    'announcement' => NotificationType.announcement,
-    _ => NotificationType.system,
-  };
+        'report_status' || 'report' => NotificationType.report,
+        'service' || 'service_status' => NotificationType.service,
+        'announcement' => NotificationType.announcement,
+        _ => NotificationType.system,
+      };
 
   Future<void> markAllRead() async {
-    state = [for (final n in state) n..read = true]; state = [...state];
+    state = [for (final n in state) n..read = true];
+    state = [...state];
     final userId = SupabaseConfig.client.auth.currentUser?.id;
     if (AppConfig.supabaseDataEnabled && userId != null) {
-      await SupabaseConfig.client.from('notifications').update({'read_at': DateTime.now().toIso8601String()})
-          .eq('user_id', userId).isFilter('read_at', null);
+      await SupabaseConfig.client
+          .from('notifications')
+          .update({'read_at': DateTime.now().toIso8601String()})
+          .eq('user_id', userId)
+          .isFilter('read_at', null);
     }
   }
 
   Future<void> markRead(String id) async {
-    state = [for (final n in state) if (n.id == id) (n..read = true) else n]; state = [...state];
+    state = [for (final n in state) if (n.id == id) (n..read = true) else n];
+    state = [...state];
     if (AppConfig.supabaseDataEnabled) {
-      await SupabaseConfig.client.from('notifications').update({'read_at': DateTime.now().toIso8601String()}).eq('id', id);
+      await SupabaseConfig.client
+          .from('notifications')
+          .update({'read_at': DateTime.now().toIso8601String()})
+          .eq('id', id);
     }
   }
 
