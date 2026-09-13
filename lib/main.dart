@@ -18,20 +18,16 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize Supabase first. It is the target production backend for the
-  // relational government workflow. RLS remains the source of truth for
-  // authorization; no service-role key is ever shipped in the app.
   try {
     await SupabaseConfig.initialize();
     AppConfig.supabaseReady = true;
+    AppConfig.supabaseDataEnabled = true;
   } catch (e) {
     debugPrint('Supabase init failed: $e');
     AppConfig.supabaseReady = false;
+    AppConfig.supabaseDataEnabled = false;
   }
 
-  // Keep Firebase temporarily for features that have not yet been migrated.
-  // It will be removed only after authentication, notifications, storage and
-  // all feature repositories are migrated and verified on the new backend.
   if (!DefaultFirebaseOptions.isPlaceholder) {
     try {
       await Firebase.initializeApp(
