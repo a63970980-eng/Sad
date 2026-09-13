@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "ye.gov.aden.aden_digital"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
