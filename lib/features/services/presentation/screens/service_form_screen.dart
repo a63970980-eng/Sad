@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/l10n_lookup.dart';
 import '../../../../core/widgets/app_widgets.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../data/repositories/supabase_service_repository.dart';
 import '../../data/services_catalog.dart';
 
 class ServiceFormScreen extends StatefulWidget {
@@ -24,33 +23,25 @@ class ServiceFormScreen extends StatefulWidget {
 }
 
 class _ServiceFormScreenState extends State<ServiceFormScreen> {
-  int _currentStep = 0;
+  final _repository = SupabaseServiceRepository();
+  final _formKeys = List.generate(4, (_) => GlobalKey<FormState>());
+  final _name = TextEditingController();
+  final _nationalNumber = TextEditingController();
+  final _phone = TextEditingController();
+  final _address = TextEditingController();
+  final _documentNumber = TextEditingController();
+  final _plate = TextEditingController();
+  final _vehicleModel = TextEditingController();
+  final _meter = TextEditingController();
+  final _details = TextEditingController();
+
+  int _step = 0;
   bool _submitting = false;
+  bool _acknowledgedDocuments = false;
+  String _district = 'صيرة (كريتر)';
+  String? _error;
 
-  // Form keys per step for validation
-  final List<GlobalKey<FormState>> _formKeys = List.generate(6, (_) => GlobalKey<FormState>());
-
-  // Field Controllers - Personal Info
-  final _nameController = TextEditingController();
-  final _nationalIdController = TextEditingController();
-  final _phoneController = TextEditingController();
-
-  // Field Controllers - Specific Service Info
-  final _districtController = TextEditingController(text: 'صيرة (كريتر)');
-  final _addressController = TextEditingController();
-
-  // Vehicle / Passport / Specific fields
-  final _prevDocNumberController = TextEditingController();
-  final _plateNumberController = TextEditingController();
-  final _vehicleModelController = TextEditingController();
-  final _meterNumberController = TextEditingController();
-  final _additionalDetailsController = TextEditingController();
-
-  // File/Document attachment simulation flags
-  bool _doc1Attached = false;
-  bool _doc2Attached = false;
-
-  final List<String> _adenDistricts = [
+  static const _districts = [
     'صيرة (كريتر)',
     'المعلا',
     'التواهي',
@@ -63,124 +54,126 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _nationalIdController.dispose();
-    _phoneController.dispose();
-    _districtController.dispose();
-    _addressController.dispose();
-    _prevDocNumberController.dispose();
-    _plateNumberController.dispose();
-    _vehicleModelController.dispose();
-    _meterNumberController.dispose();
-    _additionalDetailsController.dispose();
+    _name.dispose();
+    _nationalNumber.dispose();
+    _phone.dispose();
+    _address.dispose();
+    _documentNumber.dispose();
+    _plate.dispose();
+    _vehicleModel.dispose();
+    _meter.dispose();
+    _details.dispose();
     super.dispose();
   }
 
-  List<String> _getStepTitles(AppLocalizations l) {
-    switch (widget.serviceId) {
-      case 'national_id':
-        return [
-          l.stepApplicantDetails,
-          'بيانات السجل المدني',
-          l.stepDocuments,
-          l.stepReview,
-        ];
-      case 'passport':
-        return [
-          l.stepApplicantDetails,
-          'بيانات الجواز والسفر',
-          'بيانات الإقامة والتواصل',
-          l.stepDocuments,
-          l.stepReview,
-        ];
-      case 'driving_license':
-        return [
-          l.stepApplicantDetails,
-          'الفحص الطبي والفئة',
-          l.stepDocuments,
-          l.stepReview,
-        ];
-      case 'vehicle':
-        if (widget.actionId == 'ownership_transfer') {
-          return [
-            'بيانات المالك الجديد',
-            'بيانات البائع والمركبة',
-            'تفاصيل نقل الملكية',
-            l.stepDocuments,
-            l.stepReview,
-          ];
-        }
-        return [
-          l.stepApplicantDetails,
-          'بيانات المركبة',
-          'بيانات التجديد والترخيص',
-          l.stepDocuments,
-          l.stepReview,
-        ];
-      case 'municipality':
-        return [
-          l.stepApplicantDetails,
-          'بيانات العقار والنشاط',
-          l.stepDocuments,
-          l.stepReview,
-        ];
-      case 'utilities':
-        return [
-          l.stepApplicantDetails,
-          'بيانات العداد والحساب',
-          l.stepDocuments,
-          l.stepReview,
-        ];
-      default:
-        return [
-          l.stepApplicantDetails,
-          l.stepServiceDetails,
-          l.stepDocuments,
-          l.stepReview,
-        ];
-    }
-  }
+  List<String> _stepTitles(AppLocalizations l) => [
+        l.stepApplicantDetails,
+        l.stepServiceDetails,
+        l.stepDocuments,
+        l.stepReview,
+      ];
 
-  bool _validateCurrentStep() {
-    if (_currentStep < _formKeys.length && _formKeys[_currentStep].currentState != null) {
-      return _formKeys[_currentStep].currentState!.validate();
+  GovService? get _service => ServicesCatalog.byId(widget.serviceId);
+
+  ServiceAction? get _action =>
+      _service?.actions.where((item) => item.id == widget.actionId).firstOrNull;
+
+  String _title(AppLocalizations l) => _action == null
+      ? l.servicesTitle
+      : _action!.titleKey == 'actApplyId'
+          ? l.actApplyId
+          : _action!.titleKey == 'actRenewId'
+              ? l.actRenewId
+              : _action!.titleKey == 'actNewPassport'
+                  ? l.actNewPassport
+                  : _action!.titleKey == 'actRenewPassport'
+                      ? l.actRenewPassport
+                      : _action!.titleKey == 'actNewLicense'
+                          ? l.actNewLicense
+                          : _action!.titleKey == 'actRenewLicense'
+                              ? l.actRenewLicense
+                              : _action!.titleKey == 'actVehicleReg'
+                                  ? l.actVehicleReg
+                                  : _action!.titleKey == 'actOwnershipTransfer'
+                                      ? l.actOwnershipTransfer
+                                      : l.servicesTitle;
+
+  bool _validateStep() {
+    if (!_formKeys[_step].currentState!.validate()) return false;
+    if (_step == 2 && !_acknowledgedDocuments) {
+      setState(() => _error = 'يرجى تأكيد جاهزية المستندات المطلوبة قبل المتابعة.');
+      return false;
     }
+    setState(() => _error = null);
     return true;
   }
 
-  void _nextStep(int totalSteps) {
-    if (!_validateCurrentStep()) return;
+  void _next() {
     FocusScope.of(context).unfocus();
-    if (_currentStep < totalSteps - 1) {
-      setState(() => _currentStep++);
+    if (!_validateStep()) return;
+    if (_step < 3) {
+      setState(() => _step++);
     } else {
       _submit();
     }
   }
 
-  void _previousStep() {
+  void _back() {
     FocusScope.of(context).unfocus();
-    if (_currentStep > 0) {
-      setState(() => _currentStep--);
-    }
+    if (_step > 0) setState(() => _step--);
   }
 
+  Map<String, dynamic> _formData() => {
+        'action': widget.actionId,
+        'applicant': {
+          'full_name': _name.text.trim(),
+          'national_number': _nationalNumber.text.trim(),
+          'phone': _phone.text.trim(),
+        },
+        'location': {
+          'directorate': _district,
+          'address': _address.text.trim(),
+        },
+        'service_details': {
+          'document_number': _documentNumber.text.trim(),
+          'plate_number': _plate.text.trim(),
+          'vehicle_model': _vehicleModel.text.trim(),
+          'meter_number': _meter.text.trim(),
+          'details': _details.text.trim(),
+        },
+        'documents_acknowledged': _acknowledgedDocuments,
+      };
+
   Future<void> _submit() async {
-    setState(() => _submitting = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() => _submitting = false);
-    final ref = 'REQ-${const Uuid().v4().substring(0, 6).toUpperCase()}';
-    _showSuccess(ref);
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final result = await _repository.submitRequest(
+        serviceId: widget.serviceId,
+        formData: _formData(),
+        notes: _details.text.trim().isEmpty ? null : _details.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      _showSuccess(result['reference_no'].toString());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = 'تعذر إرسال الطلب حالياً. تحقق من الاتصال وحاول مرة أخرى.';
+      });
+    }
   }
 
   void _showSuccess(String reference) {
     final l = AppLocalizations.of(context);
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isDismissible: false,
       isScrollControlled: true,
-      builder: (_) => Padding(
+      builder: (sheetContext) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -194,25 +187,19 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            Container(
-              width: 84,
-              height: 84,
-              decoration: const BoxDecoration(
-                color: AppColors.primarySoft,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_circle_rounded,
-                  color: AppColors.primary, size: 52),
+            const CircleAvatar(
+              radius: 42,
+              backgroundColor: AppColors.primarySoft,
+              child: Icon(Icons.check_rounded, color: AppColors.primary, size: 52),
             ),
             const SizedBox(height: 20),
             Text(
               l.requestSubmitted,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               l.requestSubmittedDesc(reference),
               textAlign: TextAlign.center,
@@ -220,17 +207,17 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   context.pushReplacement(
                     '/services/${widget.serviceId}/track/${widget.actionId}?ref=$reference',
                   );
                 },
-                icon: const Icon(Icons.travel_explore_outlined),
+                icon: const Icon(Icons.track_changes_rounded),
                 label: Text(l.track),
               ),
             ),
@@ -239,7 +226,7 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   context.pop();
                 },
                 child: Text(l.ok),
@@ -254,892 +241,288 @@ class _ServiceFormScreenState extends State<ServiceFormScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final service = ServicesCatalog.byId(widget.serviceId);
-    final action =
-        service?.actions.where((a) => a.id == widget.actionId).firstOrNull;
-    final title = action != null ? tr(l, action.titleKey) : l.servicesTitle;
-
-    final stepTitles = _getStepTitles(l);
-    final totalSteps = stepTitles.length;
-    final serviceColor = service?.color ?? AppColors.primary;
+    final service = _service;
+    final color = service?.color ?? AppColors.primary;
+    final title = _title(l);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: Text(title)),
       body: Column(
         children: [
-          // Banner for Service Title
           if (service != null)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: serviceColor.withValues(alpha: 0.06),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              color: color.withValues(alpha: 0.07),
               child: Row(
                 children: [
-                  Icon(action?.icon ?? service.icon, color: serviceColor, size: 22),
+                  Icon(_action?.icon ?? service.icon, color: color),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '${tr(l, service.titleKey)} • $title',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: serviceColor,
-                        fontSize: 13.5,
-                      ),
+                      '${service.titleKey == 'svcNationalId' ? l.svcNationalId : title} • $title',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: color, fontWeight: FontWeight.w800),
                     ),
                   ),
                 ],
               ),
             ),
-
-          // Stepper Progress Bar
           AppStepperHeader(
-            currentStep: _currentStep,
-            totalSteps: totalSteps,
-            stepTitles: stepTitles,
-            primaryColor: serviceColor,
+            currentStep: _step,
+            totalSteps: 4,
+            stepTitles: _stepTitles(l),
+            primaryColor: color,
           ),
-
-          // Step Content
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: IndexedStack(
-                index: _currentStep,
-                children: [
-                  for (int i = 0; i < totalSteps; i++)
-                    Form(
-                      key: _formKeys[i],
-                      child: _buildStepContent(i, totalSteps, l, serviceColor),
-                    ),
-                ],
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Form(
+                key: _formKeys[_step],
+                child: _buildStep(_step, l, color),
               ),
             ),
           ),
-
-          // Bottom Action Bar (Previous / Next / Review & Submit)
-          _buildBottomNavigationBar(totalSteps, l, serviceColor),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepContent(
-    int stepIndex,
-    int totalSteps,
-    AppLocalizations l,
-    Color color,
-  ) {
-    final isReviewStep = stepIndex == totalSteps - 1;
-
-    if (isReviewStep) {
-      return _buildReviewStep(l, color);
-    }
-
-    // Return custom step content depending on service and step index
-    switch (widget.serviceId) {
-      case 'national_id':
-        return _buildNationalIdStep(stepIndex, l);
-      case 'passport':
-        return _buildPassportStep(stepIndex, l);
-      case 'driving_license':
-        return _buildDrivingLicenseStep(stepIndex, l);
-      case 'vehicle':
-        return _buildVehicleStep(stepIndex, l);
-      case 'municipality':
-        return _buildMunicipalityStep(stepIndex, l);
-      case 'utilities':
-        return _buildUtilitiesStep(stepIndex, l);
-      default:
-        return _buildGenericStep(stepIndex, l);
-    }
-  }
-
-  // --- Step Content Builders ---
-
-  Widget _buildNationalIdStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.fullName),
-          TextFormField(
-            controller: _nameController,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-                hintText: widget.actionId == 'renew_id'
-                    ? 'رقم الهوية الوطنية القائمة'
-                    : l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-            decoration: InputDecoration(hintText: l.selectDistrict),
-          ),
-          const SizedBox(height: 16),
-          const _Label('مركز السجل المدني الفعلي في عدن'),
-          TextFormField(
-            controller: _addressController,
-            decoration: const InputDecoration(
-              hintText: 'مثال: مجمع السجل المدني - كريتر',
-            ),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.additionalNotes),
-          TextFormField(
-            controller: _additionalDetailsController,
-            maxLines: 3,
-            decoration: InputDecoration(hintText: l.additionalNotesHint),
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'شهادة الميلاد / الهوية السابقة',
-        'صورة شخصية حديثة (خلفية بيضاء)',
-      ]);
-    }
-  }
-
-  Widget _buildPassportStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.fullName),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(hintText: l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.actionId == 'renew_passport') ...[
-            const _Label('رقم الجواز السابق'),
-            TextFormField(
-              controller: _prevDocNumberController,
-              decoration: const InputDecoration(hintText: 'أدخل رقم الجواز السابق'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-            ),
-            const SizedBox(height: 16),
-          ],
-          const _Label('المهنة أو الصفة في الجواز'),
-          TextFormField(
-            controller: _additionalDetailsController,
-            decoration: const InputDecoration(hintText: 'أدخل المهنة كما في الوثائق الرسمية'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 2) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'نسخة من البطاقة الشخصية الإلكترونية',
-        'صورة الجواز القديم / الصور الشخصية',
-      ]);
-    }
-  }
-
-  Widget _buildDrivingLicenseStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.fullName),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(hintText: l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-          ),
-          const SizedBox(height: 16),
-          const _Label('فئة رخصة القيادة المطلوبة'),
-          DropdownButtonFormField<String>(
-            value: 'خصوصي',
-            items: const [
-              DropdownMenuItem(value: 'خصوصي', child: Text('خصوصي (سيارات صغيرة)')),
-              DropdownMenuItem(value: 'عمومي', child: Text('عمومي (أجرة / نقل)')),
-              DropdownMenuItem(value: 'دراجة', child: Text('دراجة نارية')),
-            ],
-            onChanged: (_) {},
-          ),
-          const SizedBox(height: 16),
-          _Label(l.additionalNotes),
-          TextFormField(
-            controller: _additionalDetailsController,
-            decoration: const InputDecoration(hintText: 'مركز التدريب أو تفاصيل الفحص الطبي'),
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'تقرير الفحص الطبي للياقة السائق',
-        'صورة البطاقة الشخصية وصور شخصية',
-      ]);
-    }
-  }
-
-  Widget _buildVehicleStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(widget.actionId == 'ownership_transfer' ? 'اسم المالك الجديد' : l.fullName),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(hintText: l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _Label('رقم لوحة المركبة والقعدة'),
-          TextFormField(
-            controller: _plateNumberController,
-            decoration: const InputDecoration(hintText: 'مثال: 12345 عدن / خصوصي'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          const _Label('نوع المركبة والموديل وسنة الصنع'),
-          TextFormField(
-            controller: _vehicleModelController,
-            decoration: const InputDecoration(hintText: 'مثال: تويوتا كورولا 2018'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 2) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-          ),
-          const SizedBox(height: 16),
-          const _Label('مركز الفحص والترخيص في عدن'),
-          TextFormField(
-            controller: _addressController,
-            decoration: const InputDecoration(hintText: 'إدارة شرطة السير - المنصورة / المعلا'),
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'وثيقة ملكية المركبة (الكرت الأصفر/الرمادي)',
-        'عقد المبايعة أو كرت الفحص الدوري',
-      ]);
-    }
-  }
-
-  Widget _buildMunicipalityStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.fullName),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(hintText: l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-          ),
-          const SizedBox(height: 16),
-          const _Label('اسم الشارع / الحي / المخطط'),
-          TextFormField(
-            controller: _addressController,
-            decoration: const InputDecoration(hintText: 'أدخل تفاصيل الموقع والدليل الهندسي'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.additionalNotes),
-          TextFormField(
-            controller: _additionalDetailsController,
-            maxLines: 2,
-            decoration: InputDecoration(hintText: l.additionalNotesHint),
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'عقد الملكية أو الإيجار الموثق',
-        'المخطط الهندسي أو ترخيص النشاط السابقت',
-      ]);
-    }
-  }
-
-  Widget _buildUtilitiesStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.fullName),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(hintText: l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _Label('رقم العداد / رقم الاشتراك الحسابي'),
-          TextFormField(
-            controller: _meterNumberController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(hintText: 'أدخل رقم الحساب المكتوب في الفاتورة'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-          ),
-          const SizedBox(height: 16),
-          const _Label('العنوان المترابط والمربع السكني'),
-          TextFormField(
-            controller: _addressController,
-            decoration: const InputDecoration(hintText: 'اسم الشارع وقرب معلم بارز'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'نسخة من آخر فاتورة مسددة',
-        'صورة الهوية الوطنية وإثبات السكن',
-      ]);
-    }
-  }
-
-  Widget _buildGenericStep(int stepIndex, AppLocalizations l) {
-    if (stepIndex == 0) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.fullName),
-          TextFormField(
-            controller: _nameController,
-            decoration: InputDecoration(hintText: l.fullName),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.nationalNumber),
-          TextFormField(
-            controller: _nationalIdController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(hintText: l.nationalNumber),
-            validator: (v) =>
-                (v == null || v.trim().length < 6) ? l.fieldRequired : null,
-          ),
-          const SizedBox(height: 16),
-          _Label(l.phoneNumber),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(hintText: l.phoneHint),
-            validator: (v) =>
-                (v == null || v.trim().length < 9) ? l.fieldRequired : null,
-          ),
-        ],
-      );
-    } else if (stepIndex == 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Label(l.districtLabel),
-          DropdownButtonFormField<String>(
-            value: _districtController.text.isEmpty
-                ? _adenDistricts.first
-                : _districtController.text,
-            items: _adenDistricts
-                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _districtController.text = val);
-            },
-          ),
-          const SizedBox(height: 16),
-          _Label(l.additionalNotes),
-          TextFormField(
-            controller: _additionalDetailsController,
-            maxLines: 3,
-            decoration: InputDecoration(hintText: l.additionalNotesHint),
-          ),
-        ],
-      );
-    } else {
-      return _buildDocumentsStep(l, [
-        'المستند الرسمي ذو الصلة بالطلب',
-        'الهوية الوطنية / الإثبات الشخصي',
-      ]);
-    }
-  }
-
-  Widget _buildDocumentsStep(AppLocalizations l, List<String> requiredDocs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l.stepDocuments,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          l.documentNotice,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(height: 20),
-        _buildDocUploadTile(
-          title: requiredDocs[0],
-          isAttached: _doc1Attached,
-          onToggle: () => setState(() => _doc1Attached = !_doc1Attached),
-        ),
-        const SizedBox(height: 14),
-        if (requiredDocs.length > 1)
-          _buildDocUploadTile(
-            title: requiredDocs[1],
-            isAttached: _doc2Attached,
-            onToggle: () => setState(() => _doc2Attached = !_doc2Attached),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildDocUploadTile({
-    required String title,
-    required bool isAttached,
-    required VoidCallback onToggle,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onToggle,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isAttached
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isAttached ? AppColors.primary : scheme.outline,
-            width: isAttached ? 1.6 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isAttached
-                    ? AppColors.primary
-                    : scheme.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isAttached ? Icons.check : Icons.upload_file_rounded,
-                color: isAttached ? Colors.white : scheme.onSurfaceVariant,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.danger,
                       fontWeight: FontWeight.w700,
-                      color: isAttached ? AppColors.primary : scheme.onSurface,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isAttached ? 'تم إرفاق المستند بنجاح' : 'انقر لإرفاق الملف أو التقاط صورة',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: scheme.onSurfaceVariant,
+              ),
+            ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Row(
+                children: [
+                  if (_step > 0)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _submitting ? null : _back,
+                        child: const Text('السابق'),
+                      ),
+                    ),
+                  if (_step > 0) const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      onPressed: _submitting ? null : _next,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                          : Text(_step == 3 ? 'إرسال الطلب' : 'متابعة'),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReviewStep(AppLocalizations l, Color color) {
-    final t = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'مراجعة وتأكيد البيانات',
-          style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'يرجى مراجعة تفاصيل طلبك بدقة قبل الإرسال النهائي للمؤسسة الخدمية في عدن.',
-          style: t.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 20),
-        AppCard(
-          borderColor: color.withValues(alpha: 0.3),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildReviewRow(l.fullName, _nameController.text.isNotEmpty ? _nameController.text : 'لم يُدخل'),
-              const Divider(height: 20),
-              _buildReviewRow(l.nationalNumber, _nationalIdController.text.isNotEmpty ? _nationalIdController.text : 'لم يُدخل'),
-              const Divider(height: 20),
-              _buildReviewRow(l.phoneNumber, _phoneController.text.isNotEmpty ? _phoneController.text : 'لم يُدخل'),
-              const Divider(height: 20),
-              _buildReviewRow(l.districtLabel, _districtController.text.isNotEmpty ? _districtController.text : 'عدن'),
-              if (_addressController.text.isNotEmpty) ...[
-                const Divider(height: 20),
-                _buildReviewRow('العنوان/الموقع', _addressController.text),
-              ],
-              if (_plateNumberController.text.isNotEmpty) ...[
-                const Divider(height: 20),
-                _buildReviewRow('رقم اللوحة', _plateNumberController.text),
-              ],
-              if (_vehicleModelController.text.isNotEmpty) ...[
-                const Divider(height: 20),
-                _buildReviewRow('المركبة والموديل', _vehicleModelController.text),
-              ],
-              if (_meterNumberController.text.isNotEmpty) ...[
-                const Divider(height: 20),
-                _buildReviewRow('رقم العداد/الحساب', _meterNumberController.text),
-              ],
-              const Divider(height: 20),
-              _buildReviewRow('حالة المرفقات', (_doc1Attached || _doc2Attached) ? 'تم إرفاق المستندات المطلوب' : 'بدون مرفقات إضافية'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReviewRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 13.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomNavigationBar(int totalSteps, AppLocalizations l, Color color) {
-    final isFirstStep = _currentStep == 0;
-    final isLastStep = _currentStep == totalSteps - 1;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(
-          top: BorderSide(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (!isFirstStep)
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _submitting ? null : _previousStep,
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: Text(l.stepPrevious),
-              ),
-            ),
-          if (!isFirstStep) const SizedBox(width: 12),
-          Expanded(
-            flex: isFirstStep ? 2 : 1,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: color,
-              ),
-              onPressed: _submitting ? null : () => _nextStep(totalSteps),
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    )
-                  : Icon(isLastStep ? Icons.send_rounded : Icons.arrow_forward_rounded),
-              label: Text(isLastStep ? l.reviewAndSubmit : l.stepNext),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildStep(int step, AppLocalizations l, Color color) {
+    switch (step) {
+      case 0:
+        return _buildApplicantStep(l);
+      case 1:
+        return _buildDetailsStep(l, color);
+      case 2:
+        return _buildDocumentsStep(l, color);
+      default:
+        return _buildReviewStep(l, color);
+    }
+  }
+
+  Widget _buildApplicantStep(AppLocalizations l) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(title: 'بيانات مقدم الطلب', subtitle: 'تُستخدم لإتمام الطلب والتواصل الرسمي.'),
+          const SizedBox(height: 16),
+          _label(l.fullName),
+          TextFormField(
+            controller: _name,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(hintText: l.fullName, prefixIcon: const Icon(Icons.person_outline_rounded)),
+            validator: (v) => v == null || v.trim().length < 3 ? l.fieldRequired : null,
+          ),
+          const SizedBox(height: 14),
+          _label(l.nationalNumber),
+          TextFormField(
+            controller: _nationalNumber,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(hintText: l.nationalNumber, prefixIcon: const Icon(Icons.badge_outlined)),
+            validator: (v) => v == null || v.trim().length < 6 ? l.fieldRequired : null,
+          ),
+          const SizedBox(height: 14),
+          _label(l.phoneNumber),
+          TextFormField(
+            controller: _phone,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(hintText: l.phoneHint, prefixIcon: const Icon(Icons.phone_outlined)),
+            validator: (v) => v == null || v.trim().length < 9 ? l.fieldRequired : null,
+          ),
+        ],
+      );
+
+  Widget _buildDetailsStep(AppLocalizations l, Color color) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(title: 'تفاصيل الخدمة', subtitle: 'أدخل المعلومات المرتبطة بالخدمة المطلوبة.'),
+          const SizedBox(height: 16),
+          _label(l.districtLabel),
+          DropdownButtonFormField<String>(
+            value: _district,
+            decoration: InputDecoration(prefixIcon: Icon(Icons.location_on_outlined, color: color)),
+            items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (value) => setState(() => _district = value ?? _district),
+          ),
+          const SizedBox(height: 14),
+          _label('العنوان'),
+          TextFormField(
+            controller: _address,
+            maxLines: 2,
+            decoration: const InputDecoration(hintText: 'الحي، الشارع، وأقرب معلم'),
+          ),
+          const SizedBox(height: 14),
+          if (widget.serviceId == 'passport' || widget.serviceId == 'national_id') ...[
+            _label('رقم الوثيقة السابقة (إن وجد)'),
+            TextFormField(controller: _documentNumber, decoration: const InputDecoration(prefixIcon: Icon(Icons.description_outlined))),
+            const SizedBox(height: 14),
+          ],
+          if (widget.serviceId == 'vehicle') ...[
+            _label('رقم اللوحة'),
+            TextFormField(controller: _plate, decoration: const InputDecoration(prefixIcon: Icon(Icons.pin_outlined))),
+            const SizedBox(height: 14),
+            _label('طراز المركبة'),
+            TextFormField(controller: _vehicleModel, decoration: const InputDecoration(prefixIcon: Icon(Icons.directions_car_outlined))),
+            const SizedBox(height: 14),
+          ],
+          if (widget.serviceId == 'utilities') ...[
+            _label('رقم العداد / الحساب'),
+            TextFormField(controller: _meter, decoration: const InputDecoration(prefixIcon: Icon(Icons.speed_outlined))),
+            const SizedBox(height: 14),
+          ],
+          _label(l.additionalNotes),
+          TextFormField(
+            controller: _details,
+            maxLines: 4,
+            decoration: InputDecoration(hintText: l.additionalNotesHint),
+          ),
+        ],
+      );
+
+  Widget _buildDocumentsStep(AppLocalizations l, Color color) => AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.folder_open_rounded, color: color, size: 34),
+            const SizedBox(height: 12),
+            Text('المستندات المطلوبة', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 8),
+            Text(
+              'ستختلف المستندات النهائية حسب الجهة الحكومية. لا نعرض للمستخدم أن ملفاً رُفع ما لم يتم حفظه فعلياً في النظام.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 18),
+            CheckboxListTile(
+              value: _acknowledgedDocuments,
+              onChanged: (value) => setState(() => _acknowledgedDocuments = value ?? false),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('أؤكد أنني أستطيع تقديم المستندات الرسمية المطلوبة عند الطلب.'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildReviewStep(AppLocalizations l, Color color) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(title: 'مراجعة الطلب', subtitle: 'تحقق من البيانات قبل الإرسال إلى الجهة الحكومية.'),
+          const SizedBox(height: 14),
+          _ReviewCard(title: 'مقدم الطلب', rows: {
+            'الاسم': _name.text,
+            'الرقم الوطني': _nationalNumber.text,
+            'الهاتف': _phone.text,
+          }, color: color),
+          const SizedBox(height: 12),
+          _ReviewCard(title: 'الخدمة', rows: {
+            'الخدمة': _title(l),
+            'المديرية': _district,
+            'العنوان': _address.text.isEmpty ? 'غير محدد' : _address.text,
+          }, color: color),
+          const SizedBox(height: 12),
+          _ReviewCard(title: 'بيانات إضافية', rows: {
+            'رقم الوثيقة': _documentNumber.text.isEmpty ? '—' : _documentNumber.text,
+            'اللوحة': _plate.text.isEmpty ? '—' : _plate.text,
+            'العداد': _meter.text.isEmpty ? '—' : _meter.text,
+          }, color: color),
+        ],
+      );
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 7),
+        child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
+      );
 }
 
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-  final String text;
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.subtitle});
+  final String title;
+  final String subtitle;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: Theme.of(context)
-              .textTheme
-              .labelLarge
-              ?.copyWith(fontWeight: FontWeight.w700),
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 5),
+          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        ],
+      );
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.title, required this.rows, required this.color});
+  final String title;
+  final Map<String, String> rows;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900, color: color)),
+            const SizedBox(height: 10),
+            for (final entry in rows.entries) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 110, child: Text(entry.key, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(entry.value.isEmpty ? '—' : entry.value, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700))),
+                ],
+              ),
+              if (entry.key != rows.keys.last) const Divider(height: 18),
+            ],
+          ],
         ),
       );
 }
