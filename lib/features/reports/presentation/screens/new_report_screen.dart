@@ -162,14 +162,14 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
     FocusScope.of(context).unfocus();
     final desc = '${_descController.text.trim()}\n'
         '[المديرية: $_selectedDistrict]\n'
-        '[الخطورة: $_severityLevel]'
+        '[الخطورة: $_severityLevel]\n'
+        '[الهوية: ${_isAnonymous ? "مجهول الهوية" : "باسم المستخدم"}]'
         '${_additionalNotesController.text.isNotEmpty ? "\n[ملاحظات: ${_additionalNotesController.text.trim()}]" : ""}';
     final report = await ref.read(submitReportControllerProvider.notifier).submit(
       title: _titleController.text.trim(),
       description: desc,
       category: _category!,
       photos: _photos,
-      isAnonymous: _isAnonymous,
       latitude: _location!.latitude,
       longitude: _location!.longitude,
       address: _location!.address ?? 'إحداثيات موقع البلاغ',
@@ -263,195 +263,253 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
   Widget _buildCategoryStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.reportCategory, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Text('اختر نوع المشكلة أو البلاغ الذي تريد إرساله.', style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 18),
-          ...ReportCategory.values.map((category) => Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: RadioListTile<ReportCategory>(
-                  value: category,
-                  groupValue: _category,
-                  onChanged: (value) => setState(() => _category = value),
-                  title: Text(l10nCategory(context, category)),
-                  secondary: Icon(category.icon, color: category.color),
-                ),
-              )),
+          _Label(l.reportCategory),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [for (final c in ReportCategory.values) _CategoryChip(category: c, label: tr(l, c.labelKey), selected: _category == c, onTap: () => setState(() => _category = c))],
+          ),
         ],
       );
 
   Widget _buildLocationStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.reportLocation, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          _Label(l.districtLabel),
           const SizedBox(height: 8),
-          Text('حدد الموقع بدقة لمساعدة الجهة المختصة على الوصول إلى البلاغ.', style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _locating ? null : _captureLocation,
-              icon: _locating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location_rounded),
-              label: Text(_locating ? 'جارٍ تحديد موقعك...' : 'استخدام موقعي الحالي'),
-            ),
+          DropdownButtonFormField<String>(
+            value: _selectedDistrict,
+            items: _adenDistricts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+            onChanged: (v) { if (v != null) setState(() => _selectedDistrict = v); },
+            decoration: InputDecoration(hintText: l.selectDistrict),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _pickLocationFromMap,
-              icon: const Icon(Icons.map_outlined),
-              label: Text('اختيار الموقع من الخريطة'),
-            ),
-          ),
-          if (_location != null) ...[
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.location_on_rounded, color: AppColors.primary),
-                title: Text(_location!.address ?? 'الموقع المحدد'),
-                subtitle: Text('${_location!.latitude.toStringAsFixed(6)}, ${_location!.longitude.toStringAsFixed(6)}'),
-              ),
-            ),
-          ],
+          const SizedBox(height: 20),
+          _Label(l.reportLocation),
+          const SizedBox(height: 8),
+          _LocationCard(location: _location, loading: _locating, onCapture: _captureLocation, onPickMap: _pickLocationFromMap, capturedLabel: l.locationCaptured, actionLabel: l.useCurrentLocation),
         ],
       );
 
   Widget _buildDescriptionStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.reportDescription, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+          _Label(l.reportTitleLabel),
+          const SizedBox(height: 8),
+          TextFormField(controller: _titleController, decoration: InputDecoration(hintText: l.reportTitleHint), validator: (v) => v == null || v.trim().isEmpty ? l.fieldRequired : null),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _titleController,
-            decoration: InputDecoration(labelText: l.reportTitle, border: const OutlineInputBorder()),
-            validator: (value) => value == null || value.trim().isEmpty ? 'اكتب عنوان البلاغ.' : null,
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            controller: _descController,
-            minLines: 6,
-            maxLines: 10,
-            decoration: InputDecoration(labelText: l.reportDescription, alignLabelWithHint: true, border: const OutlineInputBorder()),
-            validator: (value) => value == null || value.trim().length < 10 ? 'اكتب وصفًا أوضح للبلاغ.' : null,
-          ),
+          _Label(l.reportDescLabel),
+          const SizedBox(height: 8),
+          TextFormField(controller: _descController, maxLines: 5, decoration: InputDecoration(hintText: l.reportDescHint), validator: (v) => v == null || v.trim().length < 10 ? l.fieldRequired : null),
         ],
       );
 
   Widget _buildPhotosStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.reportPhotos, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Text('أضف صورًا تساعد على توضيح المشكلة، ويمكن المتابعة دون صور.', style: Theme.of(context).textTheme.bodyMedium),
+          _Label(l.reportPhotos),
+          const SizedBox(height: 6),
+          Text('يمكنك التقاط أو رفع صور لتأكيد حالة المشكلة ومساعدة الفرق الميدانية.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
           const SizedBox(height: 16),
-          SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _showPhotoSheet, icon: const Icon(Icons.add_a_photo_outlined), label: Text(l.addPhoto))),
-          const SizedBox(height: 14),
-          if (_photos.isEmpty) const SizedBox(height: 100, child: Center(child: Text('لم تتم إضافة صور بعد.'))),
-          if (_photos.isNotEmpty) Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _photos.asMap().entries.map((entry) {
-              final index = entry.key;
-              final path = entry.value;
-              return Stack(
-                children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(12), child: kIsWeb ? Image.network(path, width: 100, height: 100, fit: BoxFit.cover) : Image.file(File(path), width: 100, height: 100, fit: BoxFit.cover)),
-                  Positioned(top: 2, right: 2, child: IconButton(onPressed: () => setState(() => _photos.removeAt(index)), icon: const CircleAvatar(radius: 13, child: Icon(Icons.close, size: 16)))),
-                ],
-              );
-            }).toList(),
-          ),
+          _PhotoStrip(photos: _photos, onAdd: _showPhotoSheet, onRemove: (i) => setState(() => _photos.removeAt(i))),
         ],
       );
 
-  Widget _buildAdditionalInfoStep(AppLocalizations l) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l.additionalInfo, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _selectedDistrict,
-            decoration: const InputDecoration(labelText: 'مديرية البلاغ', border: OutlineInputBorder()),
-            items: _adenDistricts.map((district) => DropdownMenuItem(value: district, child: Text(district))).toList(),
-            onChanged: (value) { if (value != null) setState(() => _selectedDistrict = value); },
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            value: _severityLevel,
-            decoration: const InputDecoration(labelText: 'درجة الأهمية', border: OutlineInputBorder()),
-            items: const [
-              DropdownMenuItem(value: 'منخفض / يمكن معالجته لاحقًا', child: Text('منخفض / يمكن معالجته لاحقًا')),
-              DropdownMenuItem(value: 'متوسط / ينبغي معالجته', child: Text('متوسط / ينبغي معالجته')),
-              DropdownMenuItem(value: 'مرتفع / يحتاج تدخلًا سريعًا', child: Text('مرتفع / يحتاج تدخلًا سريعًا')),
-              DropdownMenuItem(value: 'عاجل / خطر مباشر', child: Text('عاجل / خطر مباشر')),
-            ],
-            onChanged: (value) { if (value != null) setState(() => _severityLevel = value); },
-          ),
-          const SizedBox(height: 14),
-          TextFormField(controller: _additionalNotesController, minLines: 4, maxLines: 7, decoration: const InputDecoration(labelText: 'ملاحظات إضافية (اختياري)', alignLabelWithHint: true, border: OutlineInputBorder())),
-        ],
-      );
+  Widget _buildAdditionalInfoStep(AppLocalizations l) {
+    String q = 'معلومات وملاحظات إضافية حول البلاغ';
+    if (_category == ReportCategory.powerOutage) q = 'تقدير مدة انقطاع التيار الكهربائي أو رقم المحول إن وجد';
+    else if (_category == ReportCategory.waterLeak) q = 'حجم تسرب المياه ومدى تأثيره على الطريق أو المنازل المجاورة';
+    else if (_category == ReportCategory.roadDamage) q = 'أثر التلف على حركة السير أو وقوع حوادث مرورية';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Label(l.severityLevel),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _severityLevel,
+          items: [
+            DropdownMenuItem(value: l.severityLow, child: Text(l.severityLow)),
+            DropdownMenuItem(value: l.severityMedium, child: Text(l.severityMedium)),
+            DropdownMenuItem(value: l.severityHigh, child: Text(l.severityHigh)),
+          ],
+          onChanged: (v) { if (v != null) setState(() => _severityLevel = v); },
+        ),
+        const SizedBox(height: 20),
+        _Label(q),
+        const SizedBox(height: 8),
+        TextFormField(controller: _additionalNotesController, maxLines: 3, decoration: InputDecoration(hintText: l.additionalNotesHint)),
+      ],
+    );
+  }
 
   Widget _buildIdentityStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.identity, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Text('اختر ما إذا كنت تريد إظهار هويتك للجهة المختصة.', style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 16),
-          Card(
-            child: SwitchListTile.adaptive(
-              value: _isAnonymous,
-              onChanged: (value) => setState(() => _isAnonymous = value),
-              title: Text(_isAnonymous ? 'بلاغ مجهول الهوية' : 'بلاغ باسم المستخدم'),
-              subtitle: Text(_isAnonymous ? 'لن تظهر هويتك ضمن بيانات البلاغ للجهات المستلمة.' : 'سيكون البلاغ مرتبطًا بحسابك لتتمكن من متابعته.'),
-              secondary: Icon(_isAnonymous ? Icons.visibility_off_outlined : Icons.person_outline),
-            ),
-          ),
+          _Label(l.reportIdentityType),
+          const SizedBox(height: 6),
+          Text(l.reportIdentityNotice, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+          const SizedBox(height: 20),
+          RadioListTile<bool>(value: false, groupValue: _isAnonymous, activeColor: AppColors.primary, title: Text(l.reportIdentityNamed, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: const Text('سيتم ربط البلاغ برقم هاتفك وملفك في التطبيق'), onChanged: (v) { if (v != null) setState(() => _isAnonymous = v); }),
+          const Divider(),
+          RadioListTile<bool>(value: true, groupValue: _isAnonymous, activeColor: AppColors.primary, title: Text(l.reportIdentityAnonymous, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: const Text('لن تظهر أي بيانات شخصية للفرق المعنية بالبلاغ'), onChanged: (v) { if (v != null) setState(() => _isAnonymous = v); }),
         ],
       );
 
   Widget _buildReviewStep(AppLocalizations l) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.review, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
-          _reviewTile('نوع البلاغ', _category == null ? 'غير محدد' : l10nCategory(context, _category!)),
-          _reviewTile('العنوان', _titleController.text.trim()),
-          _reviewTile('المديرية', _selectedDistrict),
-          _reviewTile('الأهمية', _severityLevel),
-          _reviewTile('الموقع', _location?.address ?? 'تم تحديد الإحداثيات'),
-          _reviewTile('الهوية', _isAnonymous ? 'مجهول الهوية' : 'باسم المستخدم'),
-          if (_photos.isNotEmpty) _reviewTile('الصور', '${_photos.length} صورة'),
-          const SizedBox(height: 10),
-          Text(_descController.text.trim(), style: Theme.of(context).textTheme.bodyMedium),
+          Text('مراجعة وتأكيد البلاغ', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text('يرجى مراجعة تفاصيل البلاغ قبل الإرسال لضمان وصول التنبيه بدقة للجهة المعنية.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 20),
+          AppCard(
+            borderColor: (_category?.color ?? AppColors.primary).withValues(alpha: .3),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildReviewRow(l.reportCategory, _category != null ? tr(l, _category!.labelKey) : 'غير محدد'),
+                const Divider(height: 20),
+                _buildReviewRow(l.districtLabel, _selectedDistrict),
+                const Divider(height: 20),
+                _buildReviewRow(l.reportTitleLabel, _titleController.text.isNotEmpty ? _titleController.text : 'لم يُدخل'),
+                const Divider(height: 20),
+                _buildReviewRow(l.severityLevel, _severityLevel),
+                const Divider(height: 20),
+                _buildReviewRow(l.reportIdentityType, _isAnonymous ? l.reportIdentityAnonymous : l.reportIdentityNamed),
+                const Divider(height: 20),
+                _buildReviewRow(l.reportPhotos, _photos.isNotEmpty ? 'تم إرفاق ${_photos.length} صور' : 'بدون صور'),
+                const Divider(height: 20),
+                _buildReviewRow(l.reportLocation, _location == null ? 'غير محدد' : (_location!.address ?? 'تم تحديد الإحداثيات')),
+              ],
+            ),
+          ),
         ],
       );
 
-  Widget _reviewTile(String label, String value) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text(value.isEmpty ? 'غير محدد' : value)),
+  Widget _buildReviewRow(String label, String value) => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+          const SizedBox(width: 12),
+          Expanded(child: Text(value, textAlign: TextAlign.start, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5))),
+        ],
       );
 
-  Widget _buildBottomNavigationBar(int totalSteps, AppLocalizations l, bool submitting, Color color) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            children: [
-              if (_currentStep > 0) Expanded(child: OutlinedButton(onPressed: submitting ? null : _previousStep, child: Text(l.back))),
-              if (_currentStep > 0) const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: color),
-                  onPressed: submitting ? null : () => _nextStep(totalSteps, l),
-                  child: submitting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Text(_currentStep == totalSteps - 1 ? l.submit : l.next),
-                ),
-              ),
-            ],
+  Widget _buildBottomNavigationBar(int total, AppLocalizations l, bool submitting, Color color) {
+    final first = _currentStep == 0;
+    final last = _currentStep == total - 1;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Theme.of(context).cardColor, border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline.withValues(alpha: .3)))),
+      child: Row(
+        children: [
+          if (!first) Expanded(child: OutlinedButton.icon(onPressed: submitting ? null : _previousStep, icon: const Icon(Icons.arrow_back_rounded), label: Text(l.stepPrevious))),
+          if (!first) const SizedBox(width: 12),
+          Expanded(
+            flex: first ? 2 : 1,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: color),
+              onPressed: submitting ? null : () => _nextStep(total, l),
+              icon: submitting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.2, valueColor: AlwaysStoppedAnimation(Colors.white))) : Icon(last ? Icons.send_rounded : Icons.arrow_forward_rounded),
+              label: Text(last ? l.reviewAndSubmit : l.stepNext),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Label extends StatelessWidget {
+  const _Label(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700));
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({required this.category, required this.label, required this.selected, required this.onTap});
+  final ReportCategory category;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(color: selected ? category.color.withValues(alpha: .14) : Theme.of(context).cardColor, borderRadius: BorderRadius.circular(30), border: Border.all(color: selected ? category.color : Theme.of(context).colorScheme.outline, width: selected ? 1.6 : 1)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(category.icon, size: 18, color: selected ? category.color : Theme.of(context).colorScheme.onSurfaceVariant), const SizedBox(width: 6), Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? category.color : Theme.of(context).colorScheme.onSurface))]),
         ),
       );
+}
+
+class _PhotoStrip extends StatelessWidget {
+  const _PhotoStrip({required this.photos, required this.onAdd, required this.onRemove});
+  final List<String> photos;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return SizedBox(
+      height: 96,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          GestureDetector(
+            onTap: onAdd,
+            child: Container(width: 96, height: 96, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(16)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.add_a_photo_outlined, color: AppColors.primary), const SizedBox(height: 4), Text(l.addPhoto, style: const TextStyle(color: AppColors.primary, fontSize: 11))])),
+          ),
+          for (int i = 0; i < photos.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Stack(
+                children: [
+                  ClipRRect(borderRadius: BorderRadius.circular(16), child: kIsWeb ? Image.network(photos[i], width: 96, height: 96, fit: BoxFit.cover) : Image.file(File(photos[i]), width: 96, height: 96, fit: BoxFit.cover)),
+                  Positioned(top: 4, right: 4, child: GestureDetector(onTap: () => onRemove(i), child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, size: 14, color: Colors.white)))),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({required this.location, required this.loading, required this.onCapture, required this.onPickMap, required this.capturedLabel, required this.actionLabel});
+  final CapturedLocation? location;
+  final bool loading;
+  final VoidCallback onCapture;
+  final VoidCallback onPickMap;
+  final String capturedLabel;
+  final String actionLabel;
+  @override
+  Widget build(BuildContext context) {
+    final captured = location != null;
+    return Column(
+      children: [
+        Material(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(12)), child: loading ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.primary)) : Icon(captured ? Icons.check_circle : Icons.my_location, color: AppColors.primary)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(captured ? capturedLabel : actionLabel, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700)), if (captured) Text(location!.address ?? '${location!.latitude.toStringAsFixed(5)}, ${location!.longitude.toStringAsFixed(5)}', style: Theme.of(context).textTheme.bodySmall)])),
+                if (loading) const SizedBox(width: 8) else Icon(Icons.check_circle_outline_rounded, color: captured ? AppColors.primary : Theme.of(context).colorScheme.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(children: [Expanded(child: OutlinedButton.icon(onPressed: loading ? null : onCapture, icon: const Icon(Icons.my_location_rounded), label: const Text('استخدام موقعي الحالي'))), const SizedBox(width: 10), Expanded(child: FilledButton.icon(onPressed: loading ? null : onPickMap, icon: const Icon(Icons.map_outlined), label: const Text('اختيار من الخريطة')))]),
+      ],
+    );
+  }
 }
