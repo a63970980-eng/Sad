@@ -4,7 +4,7 @@ import '../../../../core/config/app_config.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-/// In-memory auth used when Firebase is not configured (demo mode).
+/// In-memory auth used only when explicitly running in demo mode.
 /// Accepts OTP code [AppConfig.demoOtp].
 class MockAuthRepository implements AuthRepository {
   final _controller = StreamController<AppUser?>.broadcast();
@@ -23,7 +23,6 @@ class MockAuthRepository implements AuthRepository {
   @override
   Future<PhoneVerificationResult> startPhoneVerification(String e164Phone) async {
     await Future.delayed(const Duration(milliseconds: 700));
-    // verificationId carries the phone so confirmOtp can reconstruct the user.
     return PhoneVerificationResult(verificationId: 'demo::$e164Phone');
   }
 
