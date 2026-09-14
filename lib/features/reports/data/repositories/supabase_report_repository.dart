@@ -75,26 +75,56 @@ class SupabaseReportRepository implements ReportRepository {
         .eq('code', report.category.id)
         .maybeSingle();
 
-    // Older UI builds encoded the identity choice in the description. Keep that
-    // path compatible, but never persist the privacy marker as citizen content.
+    // Older UI builds encoded these values in the description. Keep that path
+    // compatible while persisting the values in their proper database fields.
     final legacyAnonymousMarker = '[الهوية: مجهول الهوية]';
+    final legacyNamedMarker = '[الهوية: باسم المستخدم]';
     final anonymousFromLegacyDescription = report.description.contains(legacyAnonymousMarker);
     final isAnonymous = report.isAnonymous || anonymousFromLegacyDescription;
-    final sanitizedDescription = report.description
+
+    final districtMatch = RegExp(r'\[المديرية:\s*([^\]]+)\]').firstMatch(report.description);
+    final districtName = districtMatch?.group(1)?.trim();
+    final severityMatch = RegExp(r'\[الخطورة:\s*([^\]]+)\]').firstMatch(report.description);
+    final severityLabel = severityMatch?.group(1)?.trim();
+    final priority = _priorityFromLabel(severityLabel);
+
+    String? directorateId;
+    if (districtName != null && districtName.isNotEmpty) {
+      final directorate = await _client
+          .from('directorates')
+          .select('id')
+          .eq('name_ar', districtName)
+          .maybeSingle();
+      directorateId = directorate?['id']?.toString();
+    }
+
+    var sanitizedDescription = report.description
         .replaceAll('\n[الهوية: مجهول الهوية]', '')
         .replaceAll('\n[الهوية: باسم المستخدم]', '')
         .replaceAll('[الهوية: مجهول الهوية]', '')
-        .replaceAll('[الهوية: باسم المستخدم]', '')
-        .trim();
+        .replaceAll('[الهوية: باسم المستخدم]', '');
+    if (districtMatch != null) sanitizedDescription = sanitizedDescription.replaceFirst(districtMatch.group(0)!, '');
+    if (severityMatch != null) sanitizedDescription = sanitizedDescription.replaceFirst(severityMatch.group(0)!, '');
+    sanitizedDescription = sanitizedDescription.trim();
+
+    final notesMatch = RegExp(r'\[ملاحظات:\s*([^\]]*)\]').firstMatch(sanitizedDescription);
+    final notes = notesMatch?.group(1)?.trim();
+    if (notesMatch != null) sanitizedDescription = sanitizedDescription.replaceFirst(notesMatch.group(0)!, '').trim();
+    if (notes != null && notes.isNotEmpty) {
+      sanitizedDescription = sanitizedDescription.isEmpty
+          ? notes
+          : '$sanitizedDescription\n$notes';
+    }
 
     final row = await _client.from('reports').insert({
       'id': report.id,
       'citizen_id': user.id,
       'category_id': category?['id'],
+      'directorate_id': directorateId,
       'title': report.title,
       'description': sanitizedDescription,
       'status': _databaseStatus(report.status),
-      'priority': 'normal',
+      'priority': priority,
       'latitude': report.latitude,
       'longitude': report.longitude,
       'address': report.address,
@@ -117,6 +147,13 @@ class SupabaseReportRepository implements ReportRepository {
       uploaded.add(await _client.storage.from(_bucket).createSignedUrl(storagePath, 3600));
     }
     return _fromRow({...Map<String, dynamic>.from(row), 'photos': uploaded});
+  }
+
+  String _priorityFromLabel(String? label) {
+    final value = label ?? '';
+    if (value.contains('عال') || value.contains('عاجل') || value.contains('مرتفع')) return 'high';
+    if (value.contains('منخفض')) return 'low';
+    return 'normal';
   }
 
   @override
