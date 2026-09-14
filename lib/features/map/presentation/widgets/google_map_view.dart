@@ -1,21 +1,16 @@
-// ============================================================================
-//  REAL Google Maps implementation (opt-in).
-//
-//  The Map screen uses [CanvasMap] by default so it renders without an API key.
-//  To use the real Google map instead:
-//
-//   1. Add your Maps API keys:
-//        - android/app/src/main/AndroidManifest.xml  (com.google.android.geo.API_KEY)
-//        - ios/Runner/AppDelegate.swift               (GMSServices.provideAPIKey)
-//   2. In map_screen.dart, replace `CanvasMap(...)` with `GoogleMapView(...)`.
-// ============================================================================
-
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/map_place.dart';
 
+/// Vendor-neutral map surface used by the citizen map screen.
+///
+/// The report-location picker still has its existing Google Maps integration;
+/// this widget deliberately keeps the main map independent from Google Maps
+/// billing/API-key configuration. The provider can later be switched to a
+/// government-hosted tile service without changing the domain layer.
 class GoogleMapView extends StatelessWidget {
   const GoogleMapView({
     super.key,
@@ -30,36 +25,97 @@ class GoogleMapView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final markers = <Marker>{
-      for (final p in places)
-        Marker(
-          markerId: MarkerId(p.id),
-          position: LatLng(p.lat, p.lng),
-          icon: BitmapDescriptor.defaultMarkerWithHue(_hue(p.type)),
-          infoWindow: InfoWindow(title: p.name(isAr)),
-          onTap: () => onTapPlace(p),
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: const LatLng(AppConstants.adenLat, AppConstants.adenLng),
+        initialZoom: AppConstants.defaultZoom,
+        minZoom: 10,
+        maxZoom: 18,
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
-    };
-
-    return GoogleMap(
-      initialCameraPosition: const CameraPosition(
-        target: LatLng(AppConstants.adenLat, AppConstants.adenLng),
-        zoom: AppConstants.defaultZoom,
       ),
-      markers: markers,
-      myLocationEnabled: true,
-      myLocationButtonEnabled: true,
-      zoomControlsEnabled: false,
-      mapToolbarEnabled: false,
+      children: [
+        TileLayer(
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c'],
+          userAgentPackageName: 'ye.gov.aden.aden_digital',
+        ),
+        MarkerLayer(
+          markers: [
+            for (final place in places)
+              Marker(
+                point: LatLng(place.lat, place.lng),
+                width: 54,
+                height: 62,
+                child: GestureDetector(
+                  onTap: () => onTapPlace(place),
+                  child: _PlaceMarker(place: place),
+                ),
+              ),
+          ],
+        ),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution('OpenStreetMap contributors'),
+          ],
+        ),
+      ],
     );
   }
+}
 
-  double _hue(PlaceType type) => switch (type) {
-        PlaceType.report => BitmapDescriptor.hueRed,
-        PlaceType.govOffice => BitmapDescriptor.hueGreen,
-        PlaceType.electricity => BitmapDescriptor.hueOrange,
-        PlaceType.water => BitmapDescriptor.hueAzure,
-        PlaceType.police => BitmapDescriptor.hueBlue,
-        PlaceType.hospital => BitmapDescriptor.hueCyan,
-      };
+class _PlaceMarker extends StatelessWidget {
+  const _PlaceMarker({required this.place});
+
+  final MapPlace place;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: place.type.color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(place.type.icon, color: Colors.white, size: 22),
+        ),
+        CustomPaint(
+          size: const Size(14, 8),
+          painter: _PinTailPainter(place.type.color),
+        ),
+      ],
+    );
+  }
+}
+
+class _PinTailPainter extends CustomPainter {
+  const _PinTailPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
