@@ -40,7 +40,7 @@ class NotificationsController extends Notifier<List<AppNotification>> {
       if (userId == null || !AppConfig.supabaseDataEnabled || _disposed) return;
       final rows = await SupabaseConfig.client
           .from('notifications')
-          .select('id,title_ar,body_ar,type,read_at,created_at')
+          .select('id,title_ar,body_ar,type,data,read_at,created_at')
           .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(100);
@@ -71,16 +71,41 @@ class NotificationsController extends Notifier<List<AppNotification>> {
     ref.onDispose(() => SupabaseConfig.client.removeChannel(channel));
   }
 
-  AppNotification _fromRow(Map<String, dynamic> row) => AppNotification(
-        id: row['id'].toString(),
-        titleAr: row['title_ar']?.toString() ?? 'إشعار',
-        titleEn: row['title_ar']?.toString() ?? 'Notification',
-        bodyAr: row['body_ar']?.toString() ?? '',
-        bodyEn: row['body_ar']?.toString() ?? '',
-        type: _type(row['type']?.toString()),
-        date: DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
-        read: row['read_at'] != null,
-      );
+  AppNotification _fromRow(Map<String, dynamic> row) {
+    final data = row['data'] is Map
+        ? Map<String, dynamic>.from(row['data'] as Map)
+        : const <String, dynamic>{};
+    final type = _type(row['type']?.toString());
+    return AppNotification(
+      id: row['id'].toString(),
+      titleAr: row['title_ar']?.toString() ?? 'إشعار',
+      titleEn: _localizedValue(data['title_en'], _fallbackTitle(type)),
+      bodyAr: row['body_ar']?.toString() ?? '',
+      bodyEn: _localizedValue(data['body_en'], _fallbackBody(type)),
+      type: type,
+      date: DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
+      read: row['read_at'] != null,
+    );
+  }
+
+  String _localizedValue(dynamic value, String fallback) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? fallback : text;
+  }
+
+  String _fallbackTitle(NotificationType type) => switch (type) {
+        NotificationType.report => 'Report notification',
+        NotificationType.service => 'Service notification',
+        NotificationType.announcement => 'Government announcement',
+        NotificationType.system => 'System notification',
+      };
+
+  String _fallbackBody(NotificationType type) => switch (type) {
+        NotificationType.report => 'You have a new update about your report.',
+        NotificationType.service => 'You have a new update about your service request.',
+        NotificationType.announcement => 'A new government announcement is available.',
+        NotificationType.system => 'You have a new notification from Aden Digital.',
+      };
 
   NotificationType _type(String? value) => switch (value) {
         'report_status' || 'report' => NotificationType.report,
