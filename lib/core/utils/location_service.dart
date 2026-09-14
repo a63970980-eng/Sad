@@ -25,7 +25,7 @@ class CapturedLocation {
 class LocationService {
   Future<CapturedLocation> getCurrent() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      throw const LocationServiceException('Location services are disabled.');
+      throw const LocationServiceException('خدمة الموقع في الهاتف غير مفعّلة. فعّل الموقع ثم حاول مرة أخرى.');
     }
 
     var permission = await Geolocator.checkPermission();
@@ -33,10 +33,10 @@ class LocationService {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied) {
-      throw const LocationServiceException('Location permission denied.');
+      throw const LocationServiceException('تم رفض صلاحية الوصول إلى الموقع. اسمح للتطبيق باستخدام موقعك لإرسال البلاغ بدقة.');
     }
     if (permission == LocationPermission.deniedForever) {
-      throw const LocationServiceException('Location permission permanently denied.');
+      throw const LocationServiceException('صلاحية الموقع مرفوضة نهائيًا. افتح إعدادات التطبيق واسمح بالوصول إلى الموقع.');
     }
 
     final pos = await Geolocator.getCurrentPosition(
@@ -47,20 +47,15 @@ class LocationService {
     return fromCoordinates(pos.latitude, pos.longitude);
   }
 
-  Future<CapturedLocation> fromCoordinates(
-    double latitude,
-    double longitude,
-  ) async {
+  Future<CapturedLocation> fromCoordinates(double latitude, double longitude) async {
     String? address;
     try {
       final marks = await placemarkFromCoordinates(latitude, longitude);
       if (marks.isNotEmpty) {
         final m = marks.first;
-        address = [
-          m.subLocality,
-          m.locality,
-          m.administrativeArea,
-        ].where((e) => e != null && e.trim().isNotEmpty).join('، ');
+        address = [m.subLocality, m.locality, m.administrativeArea]
+            .where((e) => e != null && e.trim().isNotEmpty)
+            .join('، ');
       }
     } catch (_) {
       // Coordinates remain valid even when reverse geocoding is unavailable.
