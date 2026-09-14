@@ -9,10 +9,10 @@ import '../../domain/map_place.dart';
 
 /// Vendor-neutral map surface used by the citizen map screen.
 ///
-/// The report-location picker still has its existing Google Maps integration;
-/// this widget deliberately keeps the main map independent from Google Maps
-/// billing/API-key configuration. The provider can later be switched to a
-/// government-hosted tile service without changing the domain layer.
+/// The implementation uses OpenStreetMap tiles through flutter_map, keeping
+/// the app independent from Google Maps SDK billing and API-key configuration.
+/// A dedicated tile provider can later be introduced for government-scale
+/// production traffic without changing the domain layer.
 class GoogleMapView extends StatelessWidget {
   const GoogleMapView({
     super.key,
