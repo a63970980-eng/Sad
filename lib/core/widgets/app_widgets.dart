@@ -13,7 +13,7 @@ class AppCard extends StatelessWidget {
     this.color,
     this.borderColor,
     this.elevation = true,
-    this.radius = 20,
+    this.radius = 18,
   });
 
   final Widget child;
@@ -28,21 +28,21 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
-    
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         boxShadow: elevation && !isDark
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+                  color: Colors.black.withValues(alpha: 0.018),
+                  blurRadius: 22,
+                  offset: const Offset(0, 9),
                 ),
               ]
             : null,
@@ -59,7 +59,10 @@ class AppCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
               border: Border.all(
-                color: borderColor ?? (isDark ? scheme.outline : scheme.outline.withValues(alpha: 0.5)),
+                color: borderColor ??
+                    (isDark
+                        ? scheme.outline
+                        : scheme.outline.withValues(alpha: 0.42)),
                 width: 1,
               ),
             ),
@@ -89,18 +92,21 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
     return Row(
       children: [
         if (icon != null) ...[
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 18, color: AppColors.primary),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 17, color: AppColors.primary),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
         ],
         Expanded(
           child: Text(
@@ -115,7 +121,7 @@ class SectionHeader extends StatelessWidget {
           TextButton(
             onPressed: onAction,
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               foregroundColor: AppColors.primary,
@@ -126,7 +132,12 @@ class SectionHeader extends StatelessWidget {
               children: [
                 Text(actionLabel!),
                 const SizedBox(width: 4),
-                const Icon(Icons.arrow_forward_ios_rounded, size: 10),
+                Icon(
+                  isRtl
+                      ? Icons.arrow_back_ios_rounded
+                      : Icons.arrow_forward_ios_rounded,
+                  size: 10,
+                ),
               ],
             ),
           ),
@@ -202,20 +213,20 @@ class EmptyState extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 96,
-              height: 96,
+              width: 88,
+              height: 88,
               decoration: BoxDecoration(
                 color: AppColors.primarySoft,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 44, color: AppColors.primary),
+              child: Icon(icon, size: 40, color: AppColors.primary),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text(title,
                 textAlign: TextAlign.center,
                 style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
