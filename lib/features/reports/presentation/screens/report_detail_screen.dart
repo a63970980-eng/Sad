@@ -3,8 +3,9 @@ import 'dart:io' show File;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/settings_controller.dart';
@@ -32,13 +33,9 @@ class ReportDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(l.details)),
       body: reportAsync.when(
         loading: () => const Center(child: BrandLoader()),
-        error: (_, __) => EmptyState(
-            icon: Icons.error_outline_rounded, title: l.errorGeneric),
+        error: (_, __) => EmptyState(icon: Icons.error_outline_rounded, title: l.errorGeneric),
         data: (report) {
-          if (report == null) {
-            return EmptyState(
-                icon: Icons.search_off_rounded, title: l.noReports);
-          }
+          if (report == null) return EmptyState(icon: Icons.search_off_rounded, title: l.noReports);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             children: [
@@ -49,37 +46,19 @@ class ReportDetailScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      l.details,
-                      style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                    ),
+                    Text(l.details, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 14),
-                    _InfoRow(
-                      icon: Icons.confirmation_number_outlined,
-                      label: report.displayReference,
-                    ),
+                    _InfoRow(icon: Icons.confirmation_number_outlined, label: report.displayReference),
                     const SizedBox(height: 11),
-                    _InfoRow(
-                      icon: Icons.calendar_today_outlined,
-                      label: Formatters.dateTime(report.createdAt, locale),
-                    ),
+                    _InfoRow(icon: Icons.calendar_today_outlined, label: Formatters.dateTime(report.createdAt, locale)),
                     if (report.address != null) ...[
                       const SizedBox(height: 11),
-                      _InfoRow(
-                        icon: Icons.location_on_outlined,
-                        label: report.address!,
-                      ),
+                      _InfoRow(icon: Icons.location_on_outlined, label: report.address!),
                     ],
                     const SizedBox(height: 16),
                     Divider(color: scheme.outline),
                     const SizedBox(height: 14),
-                    Text(
-                      report.description,
-                      style: t.bodyMedium?.copyWith(
-                        color: scheme.onSurface,
-                        height: 1.65,
-                      ),
-                    ),
+                    Text(report.description, style: t.bodyMedium?.copyWith(color: scheme.onSurface, height: 1.65)),
                   ],
                 ),
               ),
@@ -93,10 +72,7 @@ class ReportDetailScreen extends ConsumerWidget {
                     scrollDirection: Axis.horizontal,
                     itemCount: report.photos.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: _Photo(path: report.photos[i]),
-                    ),
+                    itemBuilder: (_, i) => ClipRRect(borderRadius: BorderRadius.circular(14), child: _Photo(path: report.photos[i])),
                   ),
                 ),
               ],
@@ -133,49 +109,26 @@ class _ReportHero extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.outline),
-      ),
+      decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: scheme.outline)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 54,
             height: 54,
-            decoration: BoxDecoration(
-              color: report.category.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(report.category.icon,
-                color: report.category.color, size: 28),
+            decoration: BoxDecoration(color: report.category.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
+            child: Icon(report.category.icon, color: report.category.color, size: 28),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  report.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                ),
+                Text(report.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 5),
-                Text(
-                  tr(l, report.category.labelKey),
-                  style: t.bodySmall?.copyWith(
-                    color: report.category.color,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text(tr(l, report.category.labelKey), style: t.bodySmall?.copyWith(color: report.category.color, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
-                StatusPill(
-                  label: tr(l, report.status.labelKey),
-                  color: report.status.color,
-                  dense: true,
-                ),
+                StatusPill(label: tr(l, report.status.labelKey), color: report.status.color, dense: true),
               ],
             ),
           ),
@@ -199,19 +152,11 @@ class _InfoRow extends StatelessWidget {
         Container(
           width: 32,
           height: 32,
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(10),
-          ),
+          decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ),
+        Expanded(child: Padding(padding: const EdgeInsets.only(top: 6), child: Text(label, style: Theme.of(context).textTheme.bodyMedium))),
       ],
     );
   }
@@ -225,40 +170,16 @@ class _Photo extends StatelessWidget {
         width: 132,
         height: 112,
         color: AppColors.primarySoft,
-        child: Icon(
-          Icons.image_outlined,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        child: Icon(Icons.image_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant),
       );
 
   @override
   Widget build(BuildContext context) {
     if (path.startsWith('http')) {
-      return CachedNetworkImage(
-        imageUrl: path,
-        width: 132,
-        height: 112,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => _fallback(context),
-        errorWidget: (_, __, ___) => _fallback(context),
-      );
+      return CachedNetworkImage(imageUrl: path, width: 132, height: 112, fit: BoxFit.cover, placeholder: (_, __) => _fallback(context), errorWidget: (_, __, ___) => _fallback(context));
     }
-    if (kIsWeb) {
-      return Image.network(
-        path,
-        width: 132,
-        height: 112,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _fallback(context),
-      );
-    }
-    return Image.file(
-      File(path),
-      width: 132,
-      height: 112,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _fallback(context),
-    );
+    if (kIsWeb) return Image.network(path, width: 132, height: 112, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(context));
+    return Image.file(File(path), width: 132, height: 112, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(context));
   }
 }
 
@@ -270,64 +191,58 @@ class _MiniMap extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final point = LatLng(report.latitude!, report.longitude!);
-    final markerId = MarkerId('report-${report.id}');
-
+    final l = AppLocalizations.of(context);
     return Container(
       height: 218,
-      decoration: BoxDecoration(
-        color: AppColors.primarySurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outline),
-      ),
+      decoration: BoxDecoration(color: AppColors.primarySurface, borderRadius: BorderRadius.circular(18), border: Border.all(color: scheme.outline)),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(target: point, zoom: 16.5),
-            markers: {
-              Marker(
-                markerId: markerId,
-                position: point,
-                infoWindow: InfoWindow(
-                  title: AppLocalizations.of(context).reportLocation,
-                  snippet:
-                      '${report.latitude!.toStringAsFixed(5)}, ${report.longitude!.toStringAsFixed(5)}',
-                ),
-              ),
-            },
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
-            myLocationButtonEnabled: false,
-            compassEnabled: false,
-            rotateGesturesEnabled: false,
-            tiltGesturesEnabled: false,
-            mapType: MapType.normal,
-          ),
-          Positioned(
-            top: 10,
-            right: 10,
-            child: StatusPill(
-              label: AppLocalizations.of(context).locationCaptured,
-              color: AppColors.primary,
-              icon: Icons.check_circle,
-              dense: true,
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: point,
+              initialZoom: 16.5,
+              interactionOptions: const InteractionOptions(flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom | InteractiveFlag.doubleTapZoom | InteractiveFlag.scrollWheelZoom),
             ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'ye.gov.aden.aden_digital',
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: point,
+                    width: 52,
+                    height: 52,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: scheme.surface, width: 4),
+                        boxShadow: const [BoxShadow(blurRadius: 12, spreadRadius: 1, offset: Offset(0, 4))],
+                      ),
+                      child: Icon(Icons.location_on_rounded, color: scheme.onPrimary, size: 27),
+                    ),
+                  ),
+                ],
+              ),
+              RichAttributionWidget(
+                alignment: AttributionAlignment.bottomRight,
+                attributions: const [TextSourceAttribution('OpenStreetMap contributors')],
+              ),
+            ],
           ),
+          Positioned(top: 10, right: 10, child: StatusPill(label: l.locationCaptured, color: AppColors.primary, icon: Icons.check_circle, dense: true)),
           Positioned(
             left: 10,
             bottom: 10,
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.94),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: scheme.outline),
-              ),
+              decoration: BoxDecoration(color: scheme.surface.withValues(alpha: 0.94), borderRadius: BorderRadius.circular(12), border: Border.all(color: scheme.outline)),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                child: Text(
-                  '${report.latitude!.toStringAsFixed(4)}, ${report.longitude!.toStringAsFixed(4)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                child: Text('${report.latitude!.toStringAsFixed(4)}, ${report.longitude!.toStringAsFixed(4)}', style: Theme.of(context).textTheme.bodySmall),
               ),
             ),
           ),
