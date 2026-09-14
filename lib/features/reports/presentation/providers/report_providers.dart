@@ -13,9 +13,7 @@ final _mockRepoSingleton = MockReportRepository();
 
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
   final user = SupabaseConfig.client.auth.currentUser;
-  if (AppConfig.supabaseDataEnabled && user != null) {
-    return SupabaseReportRepository();
-  }
+  if (AppConfig.supabaseDataEnabled && user != null) return SupabaseReportRepository();
   if (AppConfig.demoMode) return _mockRepoSingleton;
   return SupabaseReportRepository();
 });
@@ -85,7 +83,6 @@ class SubmitReportController extends AsyncNotifier<Report?> {
   }
 }
 
-final submitReportControllerProvider =
-    AsyncNotifierProvider<SubmitReportController, Report?>(
+final submitReportControllerProvider = AsyncNotifierProvider<SubmitReportController, Report?>(
   SubmitReportController.new,
 );
