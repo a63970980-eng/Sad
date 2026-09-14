@@ -56,7 +56,7 @@ class ReportDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 14),
                     _InfoRow(
                       icon: Icons.confirmation_number_outlined,
-                      label: report.id,
+                      label: report.displayReference,
                     ),
                     const SizedBox(height: 11),
                     _InfoRow(
