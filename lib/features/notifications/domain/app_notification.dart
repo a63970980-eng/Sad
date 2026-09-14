@@ -19,7 +19,7 @@ extension NotificationTypeX on NotificationType {
 }
 
 class AppNotification {
-  AppNotification({
+  const AppNotification({
     required this.id,
     required this.titleAr,
     required this.titleEn,
@@ -37,7 +37,7 @@ class AppNotification {
   final String bodyEn;
   final NotificationType type;
   final DateTime date;
-  bool read;
+  final bool read;
 
   String title(bool isAr) => isAr ? titleAr : titleEn;
   String body(bool isAr) => isAr ? bodyAr : bodyEn;
