@@ -170,6 +170,7 @@ class _NewReportScreenState extends ConsumerState<NewReportScreen> {
       description: desc,
       category: _category!,
       photos: _photos,
+      isAnonymous: _isAnonymous,
       latitude: _location!.latitude,
       longitude: _location!.longitude,
       address: _location!.address ?? 'إحداثيات موقع البلاغ',
