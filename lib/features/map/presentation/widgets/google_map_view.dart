@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -55,7 +57,7 @@ class GoogleMapView extends StatelessWidget {
               ),
           ],
         ),
-        RichAttributionWidget(
+        const RichAttributionWidget(
           attributions: [
             TextSourceAttribution('OpenStreetMap contributors'),
           ],
@@ -106,9 +108,9 @@ class _PinTailPainter extends CustomPainter {
   final Color color;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = Path()
+  void paint(ui.Canvas canvas, ui.Size size) {
+    final paint = ui.Paint()..color = color;
+    final path = ui.Path()
       ..moveTo(0, 0)
       ..lineTo(size.width, 0)
       ..lineTo(size.width / 2, size.height)
