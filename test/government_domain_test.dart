@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aden_digital/features/notifications/domain/app_notification.dart';
+import 'package:aden_digital/features/reports/domain/entities/report.dart';
 import 'package:aden_digital/features/services/data/services_catalog.dart';
 
 void main() {
@@ -64,6 +65,72 @@ void main() {
       expect(read.bodyEn, notification.bodyEn);
       expect(read.type, notification.type);
       expect(read.date, notification.date);
+    });
+  });
+
+  group('Report domain behavior', () {
+    final report = Report(
+      id: 'r1',
+      referenceNo: 'ADN-AB12CD34EF',
+      title: 'تسرب مياه',
+      description: 'يوجد تسرب في الطريق.',
+      category: ReportCategory.waterLeak,
+      status: ReportStatus.reviewing,
+      createdAt: DateTime(2026, 9, 15),
+      photos: const ['photo.jpg'],
+      timeline: const [],
+      latitude: 12.8,
+      longitude: 45.0,
+      address: 'عدن',
+      userId: 'u1',
+    );
+
+    test('exposes location and stable display reference', () {
+      expect(report.hasLocation, isTrue);
+      expect(report.displayReference, 'ADN-AB12CD34EF');
+    });
+
+    test('falls back to id when reference is missing or blank', () {
+      final missing = report.copyWith(referenceNo: null);
+      expect(missing.displayReference, 'ADN-AB12CD34EF');
+
+      final blank = Report(
+        id: 'r2',
+        referenceNo: '   ',
+        title: report.title,
+        description: report.description,
+        category: report.category,
+        status: report.status,
+        createdAt: report.createdAt,
+        photos: const [],
+        timeline: const [],
+      );
+      expect(blank.displayReference, 'r2');
+    });
+
+    test('copyWith preserves identity and supports anonymous handling', () {
+      final anonymous = report.copyWith(
+        status: ReportStatus.inProgress,
+        isAnonymous: true,
+      );
+
+      expect(anonymous.id, report.id);
+      expect(anonymous.userId, report.userId);
+      expect(anonymous.status, ReportStatus.inProgress);
+      expect(anonymous.isAnonymous, isTrue);
+      expect(anonymous.title, report.title);
+      expect(anonymous.category, report.category);
+    });
+
+    test('unknown category and status ids fail safely to defined defaults', () {
+      expect(
+        ReportCategoryX.fromId('unknown_category'),
+        ReportCategory.publicSafety,
+      );
+      expect(
+        ReportStatusX.fromId('unknown_status'),
+        ReportStatus.submitted,
+      );
     });
   });
 }
